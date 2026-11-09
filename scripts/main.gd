@@ -21,6 +21,9 @@ static var start_action := ""
 
 const SAVE_PATH := "user://partida.json"
 
+# Relieve de la isla actual (cada isla desplaza el ruido del terreno)
+static var land_seed := 0.0
+
 const SHORE := -70.0
 const PORT := Vector3(0, 0, -58)
 const OCEAN_SIZE := 400.0
@@ -76,11 +79,15 @@ var weather
 var life
 var hull := 3
 var hull_max := 3
+var region := "tenerife"
 var journal := {}   # especie -> {"n": vista normal, "m": vista mutante, "count": nº}
 
 
 func _ready() -> void:
 	randomize()
+	if start_action == "continue":
+		region = peek_region()
+	land_seed = Data.REGIONS[region]["seed"]
 	_build_environment()
 	_build_ocean()
 	_build_land()
@@ -146,8 +153,9 @@ static func nz(x: float, z: float) -> float:
 
 
 static func land_h(x: float, z: float) -> float:
-	var inland := (SHORE - z) + nz(x * 0.6, z) * 8.0 + sin(x * 0.04) * 10.0
-	return -4.0 + inland * 0.38 + nz(x, z) * 2.2
+	var sx := x + land_seed
+	var inland := (SHORE - z) + nz(sx * 0.6, z) * 8.0 + sin(sx * 0.04) * 10.0
+	return -4.0 + inland * 0.38 + nz(sx, z) * 2.2
 
 
 func hour() -> float:
@@ -263,6 +271,9 @@ func _build_land() -> void:
 	mi.material_override = m
 	add_child(mi)
 
+	if region == "gran_canaria":
+		_build_gc_mountains()
+		return
 	# El Teide al fondo
 	var cone := CylinderMesh.new()
 	cone.top_radius = 0.0
@@ -279,7 +290,68 @@ func _build_land() -> void:
 	_mesh(snow, _mat(Color("e9eef0"), 0.8), Vector3(-90, 121, -330))
 
 
+func _build_gc_mountains() -> void:
+	# Cumbres de Gran Canaria con el Roque Nublo
+	var rock := _mat(Color("6a5546"), 1.0)
+	for m in [[-60.0, -300.0, 120.0, 110.0], [60.0, -320.0, 140.0, 95.0], [0.0, -360.0, 160.0, 120.0]]:
+		var c := CylinderMesh.new()
+		c.top_radius = m[2] * 0.15
+		c.bottom_radius = m[2]
+		c.height = m[3]
+		c.radial_segments = 8
+		_mesh(c, rock, Vector3(m[0], m[3] / 2.0 - 10.0, m[1]))
+	var roque := CylinderMesh.new()
+	roque.top_radius = 5
+	roque.bottom_radius = 8
+	roque.height = 40
+	roque.radial_segments = 6
+	_mesh(roque, _mat(Color("4e3f36"), 1.0), Vector3(0, 130, -360))
+
+
+func _build_gc_port() -> void:
+	# Puerto de La Luz: muelles largos, grúas y la ciudad detrás
+	var concrete := _mat(Color("8d8a83"), 1.0)
+	var pier := BoxMesh.new()
+	pier.size = Vector3(5, 1.2, 26)
+	_mesh(pier, concrete, Vector3(0, 0.6, -67))
+	var pier2 := BoxMesh.new()
+	pier2.size = Vector3(40, 1.2, 5)
+	_mesh(pier2, concrete, Vector3(20, 0.6, -78))
+	var yellow := _mat(Color("d9a22b"), 0.7)
+	for x in [14.0, 30.0]:
+		var leg := BoxMesh.new()
+		leg.size = Vector3(1.2, 18, 1.2)
+		_mesh(leg, yellow, Vector3(x, 9.0, -80))
+		var arm := BoxMesh.new()
+		arm.size = Vector3(1.0, 1.0, 20)
+		_mesh(arm, yellow, Vector3(x, 18.0, -72))
+	var cont_cols := [Color("b8322a"), Color("1d5aa6"), Color("2e7d4f"), Color("d98b2b")]
+	for i in 8:
+		var bm := BoxMesh.new()
+		bm.size = Vector3(6, 2.6, 2.6)
+		_mesh(bm, _mat(cont_cols[i % 4], 0.8), Vector3(8.0 + (i % 4) * 7.0, 2.5 + (i / 4) * 2.6, -84))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	for i in 22:
+		var w := 5.0 + rng.randf() * 5.0
+		var h := 6.0 + rng.randf() * 14.0
+		var x := -60.0 + i * 6.0 + rng.randf() * 2.0
+		var z := -92.0 - rng.randf() * 20.0
+		var bm := BoxMesh.new()
+		bm.size = Vector3(w, h, w)
+		var col := Color("efe9dc").lerp(Color("d8c7a8"), rng.randf())
+		_mesh(bm, _mat(col, 0.8), Vector3(x, max(land_h(x, z), 0.5) + h / 2.0 - 1.5, z))
+	port_light = OmniLight3D.new()
+	port_light.light_color = Color("ffc27a")
+	port_light.omni_range = 50
+	port_light.position = Vector3(2, 8, -70)
+	add_child(port_light)
+
+
 func _build_port() -> void:
+	if region == "gran_canaria":
+		_build_gc_port()
+		return
 	var wood := _mat(Color("6b4a2f"), 1.0)
 	var dock := BoxMesh.new()
 	dock.size = Vector3(4, 0.6, 24)
@@ -454,6 +526,8 @@ func _apply_light() -> void:
 	sky_mat.sky_top_color = sky_mat.sky_top_color.lerp(hor, tint.a * 0.6)
 	env.fog_light_color = hor
 	env.fog_density = lerp(0.03, 0.004, l) + panic * 0.00015 + float(wb["fog"])
+	if quest and quest.boss and quest.boss.phase in ["rise", "fight", "defeat"]:
+		env.fog_density *= 0.45   # el resplandor de la lava aclara la noche
 	env.ambient_light_energy = 0.2 + l * 0.5
 	# Sol: sube y baja con la hora
 	var sun_elev := sin(PI * (h - 6.0) / 12.0) * 70.0
@@ -511,7 +585,7 @@ func toggle_lamp() -> void:
 
 func start_fishing(s: Dictionary) -> void:
 	var night := is_night()
-	var pool: Array = Data.ZONES[s["zone"]]["fish"]
+	var pool: Array = Data.REGIONS[region]["zones"][s["zone"]]
 	var key: String = pool[randi() % pool.size()]
 	var g: String = Data.FISH[key]["game"]
 	var gi: Dictionary = Data.GAMES[g]
@@ -771,6 +845,33 @@ func leave_port() -> void:
 
 
 # ---------- Guardar y cargar ----------
+static func peek_region() -> String:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return "tenerife"
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var d = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(d) == TYPE_DICTIONARY and Data.REGIONS.has(str(d.get("region", ""))):
+		return str(d["region"])
+	return "tenerife"
+
+
+func travel(dest: String) -> void:
+	## Cruza a otra isla: pasan horas de travesía y se carga la nueva costa.
+	region = dest
+	bx = 0.0
+	bz = -46.0
+	ba = PI
+	bv = 0.0
+	game_time += 5.0 * 60.0
+	day = int(game_time / 1440.0) + 1
+	for s in spots:
+		s["left"] = 1
+	gear.nasas.clear()
+	save_game()
+	continue_game()
+
+
 static func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
@@ -788,6 +889,7 @@ func save_game() -> void:
 		"lamp_mult": lamp_mult, "speed_lvl": speed_lvl, "rows": rows,
 		"items": its, "spots": left,
 		"bx": bx, "bz": bz, "ba": ba,
+		"region": region, "story": quest.to_dict(),
 		"quest_state": quest.state, "stones": quest.stones,
 		"journal": journal, "gear": gear.to_dict(),
 		"hull": hull, "weather": weather.to_dict(),
@@ -835,6 +937,7 @@ func load_game() -> bool:
 		else:
 			spots[i]["left"] = min(int(left[i]), 1)
 	quest.state = str(d.get("quest_state", "talk1"))
+	quest.from_dict(d.get("story", {}))
 	quest.stones = int(d.get("stones", 0))
 	journal = d.get("journal", {})
 	gear.from_dict(d.get("gear", {}))
@@ -968,6 +1071,13 @@ func _update_boat(dt: float) -> void:
 		var a := t * 0.05 + 2.2
 		camera.position = Vector3(4.5 + cos(a) * 30.0, 9.0, -50.0 + sin(a) * 18.0)
 		camera.look_at(Vector3(-10, 6, -90))
+	elif quest and quest.boss and quest.boss.phase in ["rise", "fight", "defeat"] and mode != "cinematic":
+		# Combate: la cámara se coloca detrás del barco mirando hacia Guayota
+		var bp: Vector3 = quest.boss.body.position
+		var to_b := Vector3(bp.x - bx, 0, bp.z - bz).normalized()
+		var cam_t := Vector3(bx, 0, bz) - to_b * 26.0 + Vector3(0, 20, 0)
+		camera.position = camera.position.lerp(cam_t, 1.0 - pow(0.05, dt))
+		camera.look_at(Vector3(bx, 1.5, bz).lerp(Vector3(bp.x, 4.0, bp.z), 0.45))
 	elif mode != "cinematic":
 		camera.position = camera.position.lerp(target, 1.0 - pow(0.02, dt))
 		camera.look_at(Vector3(bx, 1.5, bz))

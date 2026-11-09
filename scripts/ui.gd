@@ -350,14 +350,43 @@ class Portrait extends Control:
 		var c := size / 2
 		draw_circle(c, 46, BRASS_D)
 		draw_circle(c, 42, BRASS)
-		var bg := Color("2a3440") if who == "Acorán" else Color("3a2a22")
-		draw_circle(c, 38, bg)
-		var body := Color("1d4f7a") if who == "Acorán" else Color("1e1c24")
-		var skin := Color("c49270") if who == "Acorán" else Color("a97a5c")
-		draw_colored_polygon(_semi(c + Vector2(0, 38), 26, 24), body)
-		draw_circle(c + Vector2(0, -4), 14, skin)
+		var looks := {
+			"Acorán": [Color("2a3440"), Color("1d4f7a"), Color("c49270")],
+			"Chaxiraxi": [Color("3a2a22"), Color("1e1c24"), Color("a97a5c")],
+			"Pancho": [Color("3a3a34"), Color("5c5a52"), Color("c49270")],
+			"Nieves": [Color("3a2a2a"), Color("b8322a"), Color("b98a6a")],
+			"Don Baltasar": [Color("1c1c22"), Color("15151a"), Color("d0a184")],
+			"Yaiza": [Color("22303c"), Color("33475b"), Color("c49270")],
+			"Guayota": [Color("2a0806"), Color("1a1412"), Color("1a1412")],
+		}
+		var lk: Array = looks.get(who, looks["Acorán"])
+		draw_circle(c, 38, lk[0])
+		if who == "Guayota":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-26, 34), c + Vector2(-8, -24), c + Vector2(8, -24), c + Vector2(26, 34)]), lk[1])
+			draw_circle(c + Vector2(-7, -4), 4, Color("fff07a"))
+			draw_circle(c + Vector2(7, -4), 4, Color("fff07a"))
+			draw_rect(Rect2(c.x - 10, c.y + 8, 20, 4), Color("ff6a1a"))
+			return
+		draw_colored_polygon(_semi(c + Vector2(0, 38), 26, 24), lk[1])
+		draw_circle(c + Vector2(0, -4), 14, lk[2])
+		if who == "Pancho":
+			draw_colored_polygon(_semi(c + Vector2(0, 8), 13, -9), Color("dcd6c8"))
+			draw_rect(Rect2(c.x - 15, c.y - 20, 30, 6), Color("d9cfb4"))
+			return
+		if who == "Nieves":
+			draw_colored_polygon(_semi(c + Vector2(0, -8), 17, 14), Color("2e6fa6"))
+			return
+		if who == "Don Baltasar":
+			draw_rect(Rect2(c.x - 16, c.y - 20, 32, 4), Color("0e0e10"))
+			draw_rect(Rect2(c.x - 10, c.y - 32, 20, 13), Color("0e0e10"))
+			draw_rect(Rect2(c.x - 2, c.y + 14, 4, 18), Color("8a1c1c"))
+			return
+		if who == "Yaiza":
+			draw_rect(Rect2(c.x - 15, c.y - 20, 30, 7), Color("1d2a38"))
+			draw_rect(Rect2(c.x - 15, c.y - 14, 34, 3), Color("1d2a38"))
+			return
 		if who == "Chaxiraxi":
-			draw_colored_polygon(_semi(c + Vector2(0, -6), 17, 16), body)
+			draw_colored_polygon(_semi(c + Vector2(0, -6), 17, 16), lk[1])
 			draw_circle(c + Vector2(22, 16), 6, Color("ffb45a"))
 		else:
 			draw_rect(Rect2(c.x - 14, c.y - 20, 28, 8), Color("2b2b2b"))
@@ -883,7 +912,7 @@ func _build_port(root: Control) -> void:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	port_panel.add_child(vb)
-	vb.add_child(Plaque.new("PUERTO DE GÜÍMAR", 20))
+	vb.add_child(Plaque.new(Data.REGIONS[main.region]["port"].to_upper(), 20))
 	vb.add_child(_label("Aquí estás a salvo. La luz del puerto calma el miedo.", 16, SALT))
 	port_list = VBoxContainer.new()
 	port_list.add_theme_constant_override("separation", 8)
@@ -1039,7 +1068,7 @@ func update_hud() -> void:
 	dial.queue_redraw()
 	money_lbl.text = "%d €" % main.money
 	debt_lbl.text = ("Deuda del barco: %d €" % main.debt) if main.debt > 0 else "Barco pagado"
-	place_lbl.text = "" if cine else "Costa de Güímar  ·  %s  ·  %s" % [main.zone_name(main.bz), main.weather.name_now()]
+	place_lbl.text = "" if cine else "%s  ·  %s  ·  %s" % [Data.REGIONS[main.region]["place"], main.zone_name(main.bz), main.weather.name_now()]
 	var hull_txt := "Casco  "
 	for i in main.hull_max:
 		hull_txt += "■ " if i < main.hull else "□ "
@@ -1145,7 +1174,8 @@ func show_dialogue(who: String, text: String, _i: int, _n: int) -> void:
 	dlg_portrait.who = who
 	dlg_portrait.queue_redraw()
 	dlg_name.text = who
-	dlg_name.add_theme_color_override("font_color", SUN if who == "Chaxiraxi" else Color("9cc8d8"))
+	var name_cols := {"Acorán": Color("9cc8d8"), "Guayota": Color("ff6a3a"), "Don Baltasar": Color("d9b98a")}
+	dlg_name.add_theme_color_override("font_color", name_cols.get(who, SUN))
 	dlg_text.text = text
 	dlg_panel.visible = true
 
@@ -1207,6 +1237,17 @@ func _render_port() -> void:
 			main.money -= g.NET_PRICE
 			g.net_owned = true
 			toast("Red comprada. Pulsa R en el mar para echarla o recogerla."))
+	if main.quest.baltasar_open():
+		var mt := 0
+		for it in main.items:
+			if it["mut"]:
+				mt += int(Data.fish_value(it["key"], true) * 1.5)
+		_port_line("Vender mutantes a Don Baltasar", "Paga una vez y media. Nadie sabe para qué los quiere.", "+%d €" % mt, mt == 0, func(): main.quest.sell_mutants_to_baltasar())
+	for p in main.quest.port_people():
+		var cb: Callable = p[2]
+		_port_line(p[0], p[1], "Ir" if p[0].begins_with("Viajar") or p[0].begins_with("Volver") else "Hablar", false, func():
+			port_panel.visible = false
+			cb.call())
 	if main.is_night():
 		_port_line("Dormir hasta el amanecer", "Pasa la noche en casa", "Dormir", false, main.sleep)
 	refresh_hold()
@@ -1236,15 +1277,167 @@ func _menu_button(text: String, cb: Callable) -> Button:
 	return b
 
 
+
+## Carta náutica de Canarias para la portada (pergamino, islas, rosa de los vientos).
+class ChartMap extends Control:
+	const LON0 := -19.0
+	const LAT1 := 29.55
+	const ISLANDS := {
+		"La Graciosa": [[-13.53, 29.29], [-13.47, 29.27], [-13.48, 29.22], [-13.54, 29.24]],
+		"Lanzarote": [[-13.47, 29.23], [-13.42, 29.18], [-13.45, 29.05], [-13.55, 28.98], [-13.62, 28.91], [-13.78, 28.84], [-13.87, 28.86], [-13.86, 28.97], [-13.76, 29.05], [-13.62, 29.13], [-13.53, 29.21]],
+		"Fuerteventura": [[-13.87, 28.75], [-13.82, 28.6], [-13.84, 28.42], [-13.9, 28.3], [-14.02, 28.21], [-14.2, 28.13], [-14.38, 28.05], [-14.5, 28.07], [-14.47, 28.11], [-14.3, 28.16], [-14.2, 28.24], [-14.08, 28.38], [-14.03, 28.55], [-13.98, 28.7], [-13.92, 28.76]],
+		"Gran Canaria": [[-15.68, 28.16], [-15.52, 28.18], [-15.42, 28.1], [-15.37, 27.95], [-15.42, 27.83], [-15.57, 27.74], [-15.7, 27.77], [-15.81, 27.86], [-15.83, 28.0], [-15.76, 28.1]],
+		"Tenerife": [[-16.92, 28.37], [-16.74, 28.38], [-16.55, 28.42], [-16.4, 28.49], [-16.22, 28.56], [-16.13, 28.57], [-16.2, 28.5], [-16.35, 28.37], [-16.45, 28.24], [-16.55, 28.1], [-16.66, 28.01], [-16.75, 28.05], [-16.83, 28.18], [-16.92, 28.3]],
+		"La Gomera": [[-17.33, 28.2], [-17.2, 28.21], [-17.1, 28.12], [-17.12, 28.05], [-17.22, 28.01], [-17.32, 28.06], [-17.35, 28.13]],
+		"La Palma": [[-17.9, 28.84], [-17.77, 28.85], [-17.73, 28.74], [-17.76, 28.6], [-17.8, 28.5], [-17.85, 28.46], [-17.88, 28.55], [-17.93, 28.68], [-17.98, 28.78]],
+		"El Hierro": [[-18.16, 27.72], [-18.05, 27.76], [-17.95, 27.84], [-17.88, 27.81], [-17.92, 27.72], [-17.99, 27.65], [-18.05, 27.7]],
+	}
+	const BORONDON := [[-18.78, 28.88], [-18.62, 28.9], [-18.55, 28.8], [-18.6, 28.68], [-18.72, 28.66], [-18.82, 28.76]]
+	var t := 0.0
+	var k := 200.0
+	var ox := 520.0
+	var oy := 240.0
+
+	func _process(dt: float) -> void:
+		t += dt
+		queue_redraw()
+
+	func P(lon: float, lat: float) -> Vector2:
+		return Vector2(ox + (lon - LON0) * 0.879 * k, oy + (LAT1 - lat) * k)
+
+	func _poly(pts: Array) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for q in pts:
+			out.append(P(q[0], q[1]))
+		return out
+
+	func _draw() -> void:
+		var W := size.x
+		var H := size.y
+		# encaja la carta en la parte derecha de la pantalla
+		var mw: float = W * 0.64
+		k = mw / (5.85 * 0.879)
+		ox = W - mw - W * 0.03
+		oy = (H - 2.1 * k) / 2.0
+		# pergamino
+		draw_rect(Rect2(Vector2.ZERO, size), Color("d6c49b"))
+		for i in 18:
+			var a: float = 0.05 + 0.03 * sin(i * 1.3)
+			draw_rect(Rect2(0, H * i / 18.0, W, H / 18.0 + 1), Color(0.45, 0.32, 0.18, a))
+		# olas dibujadas a pluma
+		var ink := Color("3b2c20")
+		for j in 22:
+			for i in 30:
+				var x: float = fmod(i * 61.0 + j * 37.0 + t * 6.0, W + 60.0) - 30.0
+				var y: float = j * H / 22.0 + 14.0 + sin(i * 2.1 + j) * 6.0
+				draw_arc(Vector2(x, y), 6.0, PI * 1.15, PI * 1.85, 6, Color(ink, 0.12), 1.2, true)
+		# meridianos y paralelos
+		for lon in range(-19, -12):
+			var a := P(lon, 29.55)
+			var b := P(lon, 27.45)
+			draw_dashed_line(a, b, Color(ink, 0.18), 1.0, 6.0)
+			draw_string(F_UI, b + Vector2(4, -6), "%d°O" % -lon, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(ink, 0.45))
+		for lat in [28.0, 29.0]:
+			var a := P(-19.0, lat)
+			var b := P(-13.15, lat)
+			draw_dashed_line(a, b, Color(ink, 0.18), 1.0, 6.0)
+			draw_string(F_UI, b + Vector2(-34, -6), "%d°N" % int(lat), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(ink, 0.45))
+		# ruta de Güímar a Las Palmas
+		var gu := P(-16.37, 28.29)
+		var lp := P(-15.42, 28.14)
+		draw_dashed_line(gu, lp, Color(BLOOD, 0.7), 2.0, 8.0)
+		# islas
+		var land := Color("b9a274")
+		for name in ISLANDS:
+			var poly := _poly(ISLANDS[name])
+			var shadow := PackedVector2Array()
+			for q in poly:
+				shadow.append(q + Vector2(3, 4))
+			draw_colored_polygon(shadow, Color(ink, 0.25))
+			draw_colored_polygon(poly, land)
+			var outline := poly.duplicate()
+			outline.append(poly[0])
+			draw_polyline(outline, ink, 2.0, true)
+			# segunda línea de costa, como en las cartas antiguas
+			var c := Vector2.ZERO
+			for q in poly:
+				c += q
+			c /= poly.size()
+			var inner := PackedVector2Array()
+			for q in outline:
+				inner.append(q.lerp(c, 0.12))
+			draw_polyline(inner, Color(ink, 0.35), 1.0, true)
+			var fs := 18 if name != "La Graciosa" else 13
+			var tw := F_TITLE.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var minp := poly[0]
+			var maxp := poly[0]
+			for q in poly:
+				minp = Vector2(min(minp.x, q.x), min(minp.y, q.y))
+				maxp = Vector2(max(maxp.x, q.x), max(maxp.y, q.y))
+			var lab := Vector2(c.x - tw / 2, minp.y - 10)   # encima de la isla
+			if name in ["Fuerteventura", "Lanzarote", "La Graciosa"]:
+				lab = Vector2(maxp.x + 10, c.y + 6)            # a la derecha
+			elif name in ["Gran Canaria", "El Hierro", "La Gomera"]:
+				lab = Vector2(c.x - tw / 2, maxp.y + 22)       # debajo
+			var off := lab - c
+			draw_string(F_TITLE, c + off, name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
+		# el Teide
+		var te := P(-16.64, 28.27)
+		draw_colored_polygon(PackedVector2Array([te + Vector2(-16, 10), te + Vector2(0, -18), te + Vector2(16, 10)]), Color("6b5040"))
+		draw_colored_polygon(PackedVector2Array([te + Vector2(-5, -10), te + Vector2(0, -18), te + Vector2(5, -10)]), Color("f1ece0"))
+		draw_string(F_HAND, te + Vector2(-16, 28), "Teide", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, ink)
+		# puertos
+		for pt in [[gu, "Güímar"], [lp, "Las Palmas"]]:
+			draw_circle(pt[0], 5, BLOOD)
+			draw_circle(pt[0], 2, PAPER)
+			draw_string(F_HAND, pt[0] + Vector2(8, 18), pt[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, BLOOD.darkened(0.3))
+		# barquito sobre la ruta
+		var bk: float = 0.5 + 0.5 * sin(t * 0.25)
+		var bp := gu.lerp(lp, bk)
+		draw_colored_polygon(PackedVector2Array([bp + Vector2(-9, 0), bp + Vector2(9, 0), bp + Vector2(6, 5), bp + Vector2(-6, 5)]), ink)
+		draw_line(bp, bp + Vector2(0, -12), ink, 1.5)
+		draw_colored_polygon(PackedVector2Array([bp + Vector2(1, -12), bp + Vector2(8, -3), bp + Vector2(1, -3)]), PAPER)
+		# San Borondón, la isla que aparece y desaparece
+		var ga: float = 0.25 + 0.25 * sin(t * 0.7)
+		var sb := _poly(BORONDON)
+		draw_colored_polygon(sb, Color(Color("6f8f7a"), ga * 0.6))
+		var so := sb.duplicate()
+		so.append(sb[0])
+		for i in so.size() - 1:
+			draw_dashed_line(so[i], so[i + 1], Color(ink, ga + 0.2), 1.5, 5.0)
+		var sc := P(-18.68, 28.78)
+		draw_string(F_HAND, sc + Vector2(-58, 52), "¿San Borondón?", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(ink, ga + 0.35))
+		# rosa de los vientos
+		var rc := Vector2(W - 120, H - 130)
+		for i in 8:
+			var a := i * TAU / 8.0 - PI / 2
+			var r := 62.0 if i % 2 == 0 else 38.0
+			var tip := rc + Vector2(cos(a), sin(a)) * r
+			var l := rc + Vector2(cos(a - 0.35), sin(a - 0.35)) * 12.0
+			var rr := rc + Vector2(cos(a + 0.35), sin(a + 0.35)) * 12.0
+			draw_colored_polygon(PackedVector2Array([rc, l, tip]), ink if i % 2 == 0 else Color(ink, 0.6))
+			draw_colored_polygon(PackedVector2Array([rc, tip, rr]), BRASS if i % 2 == 0 else PAPER)
+		draw_arc(rc, 48, 0, TAU, 40, Color(ink, 0.6), 1.5, true)
+		draw_string(F_TITLE, rc + Vector2(-7, -70), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ink)
+		# cartela
+		draw_string(F_TITLE_R, Vector2(ox + 10, oy + 2.1 * k + 30), "CARTA DE LAS YSLAS AFORTUNADAS · MAR DE MAGEC", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(ink, 0.7))
+		# viñeta
+		for i in 10:
+			draw_rect(Rect2(Vector2.ZERO, size).grow(-i * 6), Color(0.2, 0.12, 0.05, 0.06), false, 12.0)
+
 func _build_menu(root: Control) -> void:
 	menu_layer = Control.new()
 	menu_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	menu_layer.visible = false
 	root.add_child(menu_layer)
+	var chart := ChartMap.new()
+	chart.set_anchors_preset(Control.PRESET_FULL_RECT)
+	chart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	menu_layer.add_child(chart)
 	# degradado oscuro a la izquierda para leer el título
 	var grad := Gradient.new()
-	grad.set_color(0, Color(0.03, 0.02, 0.02, 0.92))
-	grad.set_color(1, Color(0.03, 0.02, 0.02, 0.0))
+	grad.set_color(0, Color(0.09, 0.05, 0.03, 0.95))
+	grad.set_color(1, Color(0.09, 0.05, 0.03, 0.0))
 	var gt := GradientTexture2D.new()
 	gt.gradient = grad
 	gt.fill_from = Vector2(0, 0)
@@ -1253,7 +1446,7 @@ func _build_menu(root: Control) -> void:
 	shade.texture = gt
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	shade.set_anchors_preset(Control.PRESET_LEFT_WIDE)
-	shade.offset_right = 900
+	shade.offset_right = 640
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	menu_layer.add_child(shade)
 

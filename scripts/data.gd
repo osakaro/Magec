@@ -95,12 +95,50 @@ const FISH := {
 		"md": "Las escamas se le caen como ceniza.",
 	},
 
+	"pargo": {
+		"game": "tiron", "n": "Pargo", "m": "Pargo de lengua negra", "shape": [[1, 1, 1], [0, 1, 0]], "v": 34, "mv": 100,
+		"c": Color("d98b6a"),
+		"d": "Rosado y de frente alta. Típico de los fondos de Gran Canaria.",
+		"md": "Tiene una lengua negra y larga que se mueve sola.",
+	},
+	"bocinegro": {
+		"game": "rapido", "n": "Bocinegro", "m": "Bocinegro de boca cosida", "shape": [[1, 1, 1]], "v": 30, "mv": 90,
+		"c": Color("c9876e"),
+		"d": "Pariente del pargo, con la boca oscura. Muy rápido.",
+		"md": "Tiene la boca cerrada con un hilo de algas, como si alguien la hubiera cosido.",
+	},
+	"dorada": {
+		"game": "zigzag", "n": "Dorada", "m": "Dorada de escamas de oro", "shape": [[1, 1]], "v": 18, "mv": 60,
+		"c": Color("b8b48a"),
+		"d": "Plateada con una ceja dorada. Desconfiada y lista.",
+		"md": "Las escamas son de oro de verdad. Pesan como monedas.",
+	},
 }
 
 const ZONES := {
 	"orilla": {"name": "Orilla", "fish": ["vieja", "chicharro", "sargo", "salema", "vieja", "calamar"]},
 	"media": {"name": "Aguas medias", "fish": ["medregal", "abade", "calamar", "sama", "chicharro", "sama"]},
 	"fondo": {"name": "Fondo profundo", "fish": ["cherne", "mero", "abade", "alfonsino", "alfonsino"]},
+}
+
+# Islas: nombre, costa, puerto, semilla del relieve y peces por zona
+const REGIONS := {
+	"tenerife": {
+		"name": "Tenerife", "place": "Costa de Güímar", "port": "Puerto de Güímar", "seed": 0.0,
+		"zones": {
+			"orilla": ["vieja", "chicharro", "sargo", "salema", "vieja", "calamar"],
+			"media": ["medregal", "abade", "calamar", "sama", "chicharro", "sama"],
+			"fondo": ["cherne", "mero", "abade", "alfonsino", "alfonsino"],
+		},
+	},
+	"gran_canaria": {
+		"name": "Gran Canaria", "place": "Costa de Las Palmas", "port": "Puerto de La Luz", "seed": 53.0,
+		"zones": {
+			"orilla": ["salema", "sargo", "dorada", "vieja", "dorada", "boga"],
+			"media": ["sama", "pargo", "bocinegro", "sama", "dorada"],
+			"fondo": ["pargo", "bocinegro", "abade", "cherne", "pargo"],
+		},
+	},
 }
 
 # Lo que cae en las nasas y en la red
@@ -113,6 +151,7 @@ const JOURNAL := [
 	["sardina", "Red"], ["boga", "Red"], ["pulpo", "Nasa"], ["morena", "Nasa"],
 	["calamar", "Orilla · aguas medias"], ["medregal", "Aguas medias"], ["sama", "Aguas medias"],
 	["abade", "Aguas medias · fondo"], ["cherne", "Fondo profundo"], ["mero", "Fondo profundo"], ["alfonsino", "Fondo profundo"],
+	["dorada", "Gran Canaria · orilla"], ["bocinegro", "Gran Canaria · medias"], ["pargo", "Gran Canaria · fondo"],
 ]
 
 # Cómo se comporta cada tipo de pez en el minijuego

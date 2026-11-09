@@ -25,6 +25,8 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 
 ## Qué hay en esta versión
 
+- Portada con una carta náutica antigua de las Islas Canarias.
+- Historia: Chaxiraxi, Pancho el Viejo y Nieves en Güímar; Guayota (primer jefe); viaje a Gran Canaria con Don Baltasar (el armador) y Yaiza la farera; dos Piedras de Magec.
 - 30 rocas y bajíos (anillo de espuma). Casco con 3 puntos: si llega a 0 naufragas, pierdes la carga y te remolcan. Se repara en el puerto.
 - El Tibicena: de noche, con mucho miedo, sale del agua y te persigue. Con el farol encendido no se acerca; sin él, muerde el casco.
 - Clima que cambia cada pocas horas: despejado, calima, lluvia y mar picada.

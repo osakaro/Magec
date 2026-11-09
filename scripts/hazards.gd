@@ -34,6 +34,9 @@ func _ok_place(x: float, z: float) -> bool:
 	for a in avoid:
 		if a.distance_to(Vector2(x, z)) < 16.0:
 			return false
+	# zona del jefe (Guayota) y faro de Yaiza
+	if Vector2(-150, 60).distance_to(Vector2(x, z)) < 45.0 or Vector2(-70, -60).distance_to(Vector2(x, z)) < 16.0:
+		return false
 	for r in rocks:
 		if Vector2(r["x"], r["z"]).distance_to(Vector2(x, z)) < 12.0:
 			return false
@@ -42,7 +45,7 @@ func _ok_place(x: float, z: float) -> bool:
 
 func _build_rocks() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 2024
+	rng.seed = 2024 + int(main.land_seed)
 	var basalt := StandardMaterial3D.new()
 	basalt.albedo_color = Color("2b2622")
 	basalt.roughness = 0.95
@@ -121,6 +124,8 @@ func _wreck() -> void:
 	# Naufragio: pierdes la carga y te remolcan hasta Güímar.
 	main.items.clear()
 	main.hull = 1
+	if main.quest.boss and main.quest.boss.phase != "idle" and main.quest.boss.phase != "done":
+		main.quest.boss._retreat("Guayota se hunde, satisfecho. Volverá la próxima noche.")
 	main.panic = 0.0
 	main.bv = 0.0
 	main.bx = 0.0

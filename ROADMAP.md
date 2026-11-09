@@ -28,10 +28,12 @@ Lista de pasos a seguir, en orden de prioridad. Se marca con [x] lo que ya está
 - [x] Gaviotas, delfines y otras barcas de día
 
 ## 4 · Historia
-- [ ] Gran Canaria: puerto grande y el armador
-- [ ] Guayota, primer jefe (Tenerife)
-- [ ] Más personajes en Güímar (pescador viejo que conoció a Aridane…)
-- [ ] Resto de islas, Piedras de Magec y los tres finales
+- [x] Gran Canaria: puerto grande y el armador (Don Baltasar), Yaiza y la segunda piedra
+- [x] Guayota, primer jefe (Tenerife): tres fuegos de Magec, lava y agua hirviendo
+- [x] Más personajes en Güímar: Pancho el Viejo (misión de la vieja) y Nieves la pescadera
+- [x] Portada con carta náutica de Canarias
+- [ ] Resto de islas (La Gomera, Lanzarote, La Graciosa, Fuerteventura, La Palma, El Hierro)
+- [ ] San Borondón, Aridane y los tres finales (el final malo depende de los mutantes vendidos a Baltasar)
 
 ## 5 · Aspecto (al final)
 - [ ] Modelos 3D de verdad: barco, pueblo, personajes, peces
