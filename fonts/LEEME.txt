@@ -1,0 +1,4 @@
+Fuentes de Google Fonts con licencia SIL Open Font License 1.1:
+- Alegreya SC (Juan Pablo del Peral)
+- Barlow Semi Condensed (Jeremy Tribby)
+- Caveat (Impallari Type)

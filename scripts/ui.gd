@@ -1,62 +1,82 @@
 extends CanvasLayer
-## Interfaz de MAGEC: HUD, intro, minijuego de pesca, captura, bodega y puerto.
+## Interfaz de MAGEC con estilo de barca canaria: madera, latón y papel.
+## El reloj es un arco de sol (Magec) y luna; el miedo es un ojo que se abre.
 
 const Data = preload("res://scripts/data.gd")
 
-const C_ABYSS := Color("071219")
-const C_DEEP := Color("0f2430")
-const C_FOAM := Color("e7efe9")
-const C_SALT := Color("9fb3b4")
-const C_SUN := Color("f2b33d")
-const C_BLOOD := Color("d2453a")
-const C_KELP := Color("6fae7d")
+const F_TITLE = preload("res://fonts/AlegreyaSC-Bold.ttf")
+const F_TITLE_R = preload("res://fonts/AlegreyaSC-Regular.ttf")
+const F_UI = preload("res://fonts/BarlowSemiCondensed-Medium.ttf")
+const F_UI_B = preload("res://fonts/BarlowSemiCondensed-SemiBold.ttf")
+const F_HAND = preload("res://fonts/Caveat-Variable.ttf")
 
-var main  # referencia a main.gd
+const WOOD_D := Color("1b120c")
+const WOOD := Color("33221a")
+const WOOD_L := Color("5b3d27")
+const BRASS := Color("c9a14a")
+const BRASS_D := Color("7a5a24")
+const PAPER := Color("e9dec3")
+const INK := Color("2a211b")
+const FOAM := Color("f1e9d8")
+const SALT := Color("b4a68b")
+const SUN := Color("f2b33d")
+const BLOOD := Color("c43b2f")
+const SEA := Color("2f6f73")
 
-var clock_lbl: Label
-var day_lbl: Label
+const DAYS := ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+var main
+
+var dial: SunDial
 var money_lbl: Label
 var debt_lbl: Label
-var panic_bar: ProgressBar
-var panic_lbl: Label
-var hint_lbl: RichTextLabel
+var place_lbl: Label
+var note: PaperNote
+var hint_box: PanelContainer
+var hint_key: KeyCap
+var hint_lbl: Label
+var toast_box: PanelContainer
 var toast_lbl: Label
 var toast_time := 0.0
 var vignette: ColorRect
 
-var intro: Control
-var objective_lbl: Label
-var dlg_panel: PanelContainer
+var fish_panel: WoodPanel
+var fish_title: Label
+var fish_bar: FishBar
+var catch_panel: WoodPanel
+var catch_icon: FishIcon
+var catch_name: Label
+var catch_desc: Label
+var catch_price: Label
+var keep_btn: Button
+var hold_panel: WoodPanel
+var hold_grid: HoldGrid
+var hold_stats: Label
+var hold_info: Label
+var drop_btn: Button
+var port_panel: WoodPanel
+var port_list: VBoxContainer
+var dlg_panel: WoodPanel
+var dlg_portrait: Portrait
 var dlg_name: Label
 var dlg_text: Label
+
+var intro: Control
 var cine_black: ColorRect
 var cine_card: Label
 var cine_sub: Label
 var cine_title: Label
-var fish_panel: PanelContainer
-var fish_title: Label
-var fish_bar: FishBar
-var catch_panel: PanelContainer
-var catch_icon: FishIcon
-var catch_name: Label
-var catch_desc: Label
-var keep_btn: Button
-var hold_panel: PanelContainer
-var hold_grid: HoldGrid
-var hold_info: Label
-var drop_btn: Button
-var port_panel: PanelContainer
-var port_list: VBoxContainer
 
 
-# ================= Controles dibujados a mano =================
+# =====================================================================
+# Piezas dibujadas a mano
+# =====================================================================
 
 static func draw_fish(ci: CanvasItem, rect: Rect2, color: Color, mut: bool, vertical: bool) -> void:
 	var w := rect.size.x
 	var h := rect.size.y
 	var o := rect.position
 	if vertical:
-		# Dibuja en horizontal dentro de un rectángulo girado.
 		ci.draw_set_transform(o + Vector2(w, 0), PI / 2, Vector2.ONE)
 		var tmp := w
 		w = h
@@ -65,26 +85,30 @@ static func draw_fish(ci: CanvasItem, rect: Rect2, color: Color, mut: bool, vert
 	var cx := o.x + w * 0.46
 	var cy := o.y + h / 2.0
 	var rx := w * 0.34
-	var ry := h * 0.3
+	var ry: float = min(h * 0.3, w * 0.2)
 	var col := color
 	if mut:
 		col = color.lerp(Color("4a5f3a"), 0.45)
-	ci.draw_colored_polygon(PackedVector2Array([Vector2(cx + rx * 0.85, cy), Vector2(o.x + w * 0.96, cy - ry * 1.1), Vector2(o.x + w * 0.96, cy + ry * 1.1)]), col)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(cx + rx * 0.85, cy), Vector2(o.x + w * 0.96, cy - ry * 1.1), Vector2(o.x + w * 0.96, cy + ry * 1.1)]), col.darkened(0.1))
 	var pts := PackedVector2Array()
-	for i in 24:
-		var a := TAU * i / 24.0
+	for i in 28:
+		var a := TAU * i / 28.0
 		pts.append(Vector2(cx + cos(a) * rx, cy + sin(a) * ry))
 	ci.draw_colored_polygon(pts, col)
 	var belly := PackedVector2Array()
 	for i in 16:
 		var a := TAU * i / 16.0
 		belly.append(Vector2(cx + cos(a) * rx * 0.8, cy + ry * 0.35 + sin(a) * ry * 0.35))
-	ci.draw_colored_polygon(belly, Color(1, 1, 1, 0.18))
+	ci.draw_colored_polygon(belly, Color(1, 1, 1, 0.16))
+	var outline := pts.duplicate()
+	outline.append(pts[0])
+	ci.draw_polyline(outline, col.darkened(0.45), 1.5, true)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(cx - rx * 0.3, cy - ry * 0.9), Vector2(cx + rx * 0.1, cy - ry * 1.45), Vector2(cx + rx * 0.4, cy - ry * 0.85)]), col.darkened(0.2))
 	if mut:
-		var dark := col.darkened(0.4)
+		var dark := col.darkened(0.5)
 		for i in 7:
 			var px := cx - rx * 0.6 + i * rx * 0.2
-			ci.draw_colored_polygon(PackedVector2Array([Vector2(px - 4, cy - ry * 0.9), Vector2(px, cy - ry * 1.5), Vector2(px + 4, cy - ry * 0.9)]), dark)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(px - 3, cy - ry * 0.9), Vector2(px, cy - ry * 1.6), Vector2(px + 3, cy - ry * 0.9)]), dark)
 		for i in 6:
 			var ex := cx - rx * 0.5 + float((i * 37) % 10) / 10.0 * rx * 1.1
 			var ey := cy + (float((i * 53) % 10) / 10.0 - 0.5) * ry * 1.1
@@ -97,64 +121,346 @@ static func draw_fish(ci: CanvasItem, rect: Rect2, color: Color, mut: bool, vert
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 
+static func wood_style(alpha := 0.96) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(WOOD, alpha)
+	sb.border_color = WOOD_D
+	sb.set_border_width_all(5)
+	sb.set_corner_radius_all(4)
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 14
+	sb.shadow_offset = Vector2(0, 5)
+	sb.set_content_margin_all(22)
+	return sb
+
+
+## Panel de madera con vetas, filo de latón y remaches.
+class WoodPanel extends PanelContainer:
+	var seed_v := 0.0
+	func _init() -> void:
+		add_theme_stylebox_override("panel", load("res://scripts/ui.gd").wood_style())
+		seed_v = randf() * 100.0
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		var y := 9.0
+		var i := 0
+		while y < size.y - 8.0:
+			var a: float = 0.05 + 0.04 * sin(i * 1.7 + seed_v)
+			var pts := PackedVector2Array()
+			for k in 9:
+				var x := 8.0 + (size.x - 16.0) * k / 8.0
+				pts.append(Vector2(x, y + sin(k * 0.9 + i + seed_v) * 1.6))
+			draw_polyline(pts, Color(0, 0, 0, a), 1.0, true)
+			y += 7.0 + fmod(i * 3.7 + seed_v, 6.0)
+			i += 1
+		draw_rect(r.grow(-8), Color(BRASS, 0.55), false, 1.5)
+		for c in [Vector2(14, 14), Vector2(size.x - 14, 14), Vector2(14, size.y - 14), Vector2(size.x - 14, size.y - 14)]:
+			draw_circle(c, 3.2, BRASS_D)
+			draw_circle(c - Vector2(0.8, 0.8), 1.6, BRASS)
+
+
+## Placa de latón para títulos.
+class Plaque extends Control:
+	var text := ""
+	var size_px := 20
+	func _init(t := "", s := 20) -> void:
+		text = t
+		size_px = s
+		custom_minimum_size = Vector2(0, s + 18)
+	func _draw() -> void:
+		var tw := F_TITLE.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x
+		var w := tw + 44.0
+		var h := size.y
+		var pts := PackedVector2Array([Vector2(10, 0), Vector2(w - 10, 0), Vector2(w, h / 2), Vector2(w - 10, h), Vector2(10, h), Vector2(0, h / 2)])
+		draw_colored_polygon(pts, BRASS_D)
+		var inner := PackedVector2Array()
+		for p in pts:
+			inner.append(p.lerp(Vector2(w / 2, h / 2), 0.08))
+		draw_colored_polygon(inner, BRASS)
+		draw_string(F_TITLE, Vector2(22, h / 2 + size_px * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, INK)
+
+
+## Tecla dibujada.
+class KeyCap extends Control:
+	var key := ""
+	func _init(k := "") -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_key(k)
+	func set_key(k: String) -> void:
+		key = k
+		var w: float = max(30.0, F_UI_B.get_string_size(k, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 16.0)
+		custom_minimum_size = Vector2(w, 30)
+		queue_redraw()
+	func _draw() -> void:
+		draw_rect(Rect2(0, 3, size.x, size.y - 3), BRASS_D)
+		draw_rect(Rect2(0, 0, size.x, size.y - 4), Color("e7d3a0"))
+		draw_rect(Rect2(0, 0, size.x, size.y - 4), BRASS_D, false, 1.0)
+		var tw := F_UI_B.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		draw_string(F_UI_B, Vector2((size.x - tw) / 2, 20), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+
+
+## Reloj de Magec: el sol (o la luna) recorre un arco; el ojo del miedo se abre dentro.
+class SunDial extends Control:
+	var game
+	func _init() -> void:
+		custom_minimum_size = Vector2(380, 178)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		if game == null:
+			return
+		var c := Vector2(size.x / 2, 112)
+		var R := 96.0
+		var l: float = game.daylight()
+		var h: float = game.hour()
+		var night: bool = game.is_night()
+		var sky := Color("0b1622").lerp(Color("6aa6c4"), l)
+		var pts := PackedVector2Array([c])
+		for i in 33:
+			var a := PI + PI * i / 32.0
+			pts.append(c + Vector2(cos(a), sin(a)) * R)
+		draw_colored_polygon(pts, Color(sky, 0.88))
+		draw_rect(Rect2(c.x - R, c.y - 6, R * 2, 6), Color(SEA.darkened(0.3 + (1.0 - l) * 0.5), 0.95))
+		if l < 0.5:
+			for i in 14:
+				var a := PI + PI * (0.08 + 0.84 * fmod(i * 0.618, 1.0))
+				var rr := R * (0.35 + 0.55 * fmod(i * 0.377, 1.0))
+				draw_circle(c + Vector2(cos(a), sin(a)) * rr, 1.1, Color(1, 1, 1, (0.5 - l) * 1.6))
+		draw_arc(c, R, PI, TAU, 48, BRASS_D, 9.0, true)
+		draw_arc(c, R, PI, TAU, 48, BRASS, 4.0, true)
+		for hh in range(6, 21, 2):
+			var a := PI + PI * (hh - 6) / 14.0
+			var d := Vector2(cos(a), sin(a))
+			draw_line(c + d * (R - 9), c + d * (R + 9), INK, 2.0)
+			if hh % 6 == 0:
+				var s := str(hh)
+				var tw := F_UI_B.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+				var at := c + d * (R + 20) + Vector2(-tw / 2, 5)
+				draw_string_outline(F_UI_B, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.7))
+				draw_string(F_UI_B, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, FOAM)
+		if not night:
+			var a: float = PI + PI * clamp((h - 6.0) / 14.0, 0.0, 1.0)
+			var p := c + Vector2(cos(a), sin(a)) * (R - 26)
+			for i in 12:
+				var ra: float = TAU * i / 12.0 + game.t * 0.2
+				var rl := 21.0 if i % 2 == 0 else 18.0
+				draw_line(p + Vector2(cos(ra), sin(ra)) * 15, p + Vector2(cos(ra), sin(ra)) * rl, SUN, 2.0, true)
+			draw_circle(p, 12, SUN)
+			draw_circle(p, 8, Color("ffd77a"))
+		else:
+			var nh: float = h - 20.0 if h >= 20.0 else h + 4.0
+			var a: float = PI + PI * clamp(nh / 10.0, 0.0, 1.0)
+			var p := c + Vector2(cos(a), sin(a)) * (R - 26)
+			draw_circle(p, 11, Color("e9e3cf"))
+			draw_circle(p + Vector2(5, -3), 9.5, Color(sky, 1.0))
+		# ojo del miedo
+		var panic: float = game.panic
+		var open: float = clamp(panic / 100.0, 0.06, 1.0)
+		var e := c + Vector2(0, -30)
+		var ew := 34.0
+		var eh := 15.0 * open
+		var eye := PackedVector2Array()
+		for i in 21:
+			var x := -ew + 2.0 * ew * i / 20.0
+			eye.append(e + Vector2(x, -eh * (1.0 - pow(x / ew, 2))))
+		for i in range(19, 0, -1):
+			var x := -ew + 2.0 * ew * i / 20.0
+			eye.append(e + Vector2(x, eh * (1.0 - pow(x / ew, 2))))
+		var pulse := 0.0
+		if panic > 60.0:
+			pulse = 0.5 + 0.5 * sin(game.t * (4.0 + panic / 15.0))
+		draw_colored_polygon(eye, Color("efe2c8").lerp(Color("f2c2a8"), panic / 100.0))
+		var ir: float = min(eh, 11.0)
+		if ir > 1.0:
+			draw_circle(e, ir, BLOOD.lerp(Color("ff3b2a"), pulse))
+			draw_circle(e, ir * 0.45, Color("120807"))
+		var outline := eye.duplicate()
+		outline.append(eye[0])
+		draw_polyline(outline, INK, 2.0, true)
+		if panic < 6.0:
+			for i in 5:
+				var x := -ew * 0.6 + ew * 0.3 * i
+				draw_line(e + Vector2(x, 0), e + Vector2(x * 1.15, 6), INK, 1.5, true)
+		# placa de la hora
+		var pr := Rect2(c.x - 92, c.y + 4, 184, 58)
+		draw_rect(pr.grow(3), WOOD_D)
+		draw_rect(pr, WOOD)
+		draw_rect(pr.grow(-4), Color(BRASS, 0.6), false, 1.2)
+		var mins := int(fmod(game.game_time, 60.0))
+		var tstr := "%02d:%02d" % [int(h), mins]
+		var tw := F_TITLE.get_string_size(tstr, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+		draw_string(F_TITLE, Vector2(c.x - tw / 2, pr.position.y + 31), tstr, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, FOAM)
+		var dstr: String = ("%s · Día %d" % [DAYS[(game.day - 1) % 7], game.day]).to_upper()
+		var dw := F_UI.get_string_size(dstr, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		draw_string(F_UI, Vector2(c.x - dw / 2, pr.position.y + 50), dstr, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, SALT)
+
+
+## Nota de papel clavada con una chincheta (el encargo actual).
+class PaperNote extends Control:
+	var title := "ENCARGO"
+	var text := ""
+	func _init() -> void:
+		custom_minimum_size = Vector2(330, 120)
+		size = custom_minimum_size
+		rotation = deg_to_rad(-1.8)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func set_text(t: String) -> void:
+		if t == text:
+			return
+		text = t
+		visible = t != ""
+		var lines := F_HAND.get_multiline_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, 290, 25).y
+		custom_minimum_size.y = 62 + lines
+		size = custom_minimum_size
+		queue_redraw()
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2(4, 5), size), Color(0, 0, 0, 0.35))
+		var pts := PackedVector2Array([Vector2(0, 2), Vector2(size.x * 0.4, 0), Vector2(size.x, 3), Vector2(size.x - 2, size.y), Vector2(size.x * 0.6, size.y - 3), Vector2(1, size.y - 1)])
+		draw_colored_polygon(pts, PAPER)
+		for i in 4:
+			draw_line(Vector2(18, 50 + i * 26), Vector2(size.x - 18, 50 + i * 26), Color(0.4, 0.5, 0.6, 0.12), 1.0)
+		draw_circle(Vector2(size.x / 2, 8), 7, BLOOD.darkened(0.2))
+		draw_circle(Vector2(size.x / 2 - 2, 6), 2.5, Color(1, 1, 1, 0.5))
+		draw_string(F_TITLE, Vector2(20, 36), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(INK, 0.7))
+		draw_multiline_string(F_HAND, Vector2(20, 62), text, HORIZONTAL_ALIGNMENT_LEFT, 290, 25, -1, INK)
+
+
+## Retrato redondo para los diálogos.
+class Portrait extends Control:
+	var who := ""
+	func _init() -> void:
+		custom_minimum_size = Vector2(96, 96)
+	func _draw() -> void:
+		var c := size / 2
+		draw_circle(c, 46, BRASS_D)
+		draw_circle(c, 42, BRASS)
+		var bg := Color("2a3440") if who == "Acorán" else Color("3a2a22")
+		draw_circle(c, 38, bg)
+		var body := Color("1d4f7a") if who == "Acorán" else Color("1e1c24")
+		var skin := Color("c49270") if who == "Acorán" else Color("a97a5c")
+		draw_colored_polygon(_semi(c + Vector2(0, 38), 26, 24), body)
+		draw_circle(c + Vector2(0, -4), 14, skin)
+		if who == "Chaxiraxi":
+			draw_colored_polygon(_semi(c + Vector2(0, -6), 17, 16), body)
+			draw_circle(c + Vector2(22, 16), 6, Color("ffb45a"))
+		else:
+			draw_rect(Rect2(c.x - 14, c.y - 20, 28, 8), Color("2b2b2b"))
+			draw_rect(Rect2(c.x - 2, c.y - 14, 20, 3), Color("2b2b2b"))
+	func _semi(center: Vector2, rx: float, ry: float) -> PackedVector2Array:
+		var p := PackedVector2Array()
+		for i in 17:
+			var a := PI + PI * i / 16.0
+			p.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+		return p
+
+
+## Ficha de captura en papel, como un cuaderno de especies.
 class FishIcon extends Control:
 	var key := ""
 	var mut := false
 	func _draw() -> void:
 		if key == "":
 			return
-		draw_rect(Rect2(Vector2.ZERO, size), Color("0c1d27"))
-		var r := Rect2(size.x * 0.25, 0, size.x * 0.5, size.y)
-		owner_ui().draw_fish(self, r, Data.FISH[key]["c"], mut, false)
-	func owner_ui():
-		return load("res://scripts/ui.gd")
+		var r := Rect2(Vector2.ZERO, size)
+		draw_rect(r, PAPER)
+		for i in 6:
+			draw_line(Vector2(0, 20 + i * 22), Vector2(size.x, 20 + i * 22), Color(0.4, 0.5, 0.6, 0.1), 1.0)
+		if mut:
+			draw_rect(r.grow(-6), Color(BLOOD, 0.5), false, 2.0)
+		load("res://scripts/ui.gd").draw_fish(self, Rect2(size.x * 0.22, 6, size.x * 0.56, size.y - 12), Data.FISH[key]["c"], mut, false)
+		draw_string(F_HAND, Vector2(14, size.y - 12), "Ejemplar · Güímar", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(INK, 0.55))
 
 
+## Minijuego: el corcho se mueve por el sedal; hay que pararlo sobre el agua dorada.
 class FishBar extends Control:
 	var game
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 112)
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color("0c1d27"))
+		var bar := Rect2(0, 18, size.x, 46)
+		draw_rect(bar.grow(3), WOOD_D)
+		var steps := 12
+		for i in steps:
+			var k := float(i) / steps
+			draw_rect(Rect2(bar.position.x, bar.position.y + bar.size.y * k, bar.size.x, bar.size.y / steps + 1), SEA.darkened(0.2 + k * 0.5))
 		if game == null or game.fishing.is_empty():
 			return
 		var f: Dictionary = game.fishing
-		draw_rect(Rect2(f["zs"] * size.x, 0, f["w"] * size.x, size.y), Color(0.43, 0.68, 0.49, 0.6))
-		var x: float = f["p"] * size.x
-		draw_rect(Rect2(x - 2, -4, 4, size.y + 8), Color("f2b33d"))
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.62, 0.7, 0.7, 0.4), false, 1.0)
+		var tt: float = game.t
+		var zr := Rect2(bar.position.x + f["zs"] * bar.size.x, bar.position.y, f["w"] * bar.size.x, bar.size.y)
+		draw_rect(zr, Color(SUN, 0.28 + 0.1 * sin(tt * 6.0)))
+		draw_rect(zr, Color(SUN, 0.9), false, 2.0)
+		for i in 4:
+			var bx: float = zr.position.x + zr.size.x * fmod(i * 0.29 + tt * 0.3, 1.0)
+			draw_circle(Vector2(bx, zr.end.y - fmod(tt * 20.0 + i * 11.0, bar.size.y)), 2.0, Color(1, 1, 1, 0.5))
+		draw_line(Vector2(0, bar.position.y + 8), Vector2(size.x, bar.position.y + 8), Color(1, 1, 1, 0.35), 1.0)
+		var x: float = bar.position.x + f["p"] * bar.size.x
+		var y := bar.position.y + 8 + sin(tt * 9.0) * 2.0
+		draw_line(Vector2(x, y - 14), Vector2(x, y + 22), INK, 2.0)
+		draw_circle(Vector2(x, y + 4), 9, FOAM)
+		draw_circle(Vector2(x, y - 1), 9, BLOOD)
+		draw_rect(Rect2(x - 9, y + 1, 18, 3), FOAM)
+		var base := Vector2(0, 80)
+		for i in 3:
+			var r := Rect2(base.x + i * 62, base.y, 54, 26)
+			draw_rect(r, Color(0, 0, 0, 0.3))
+			if i < f["hits"]:
+				load("res://scripts/ui.gd").draw_fish(self, r.grow(-2), SUN, false, false)
+			else:
+				draw_rect(r, Color(BRASS, 0.4), false, 1.0)
+		for i in 3:
+			var cx: float = size.x - 20 - i * 34
+			var col := BLOOD if i < f["miss"] else Color(BRASS, 0.35)
+			draw_line(Vector2(cx - 9, base.y + 4), Vector2(cx + 9, base.y + 22), col, 3.0)
+			draw_line(Vector2(cx + 9, base.y + 4), Vector2(cx - 9, base.y + 22), col, 3.0)
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed:
 			game.strike()
 
 
+## Bodega en cuadrícula con marco de latón.
 class HoldGrid extends Control:
-	const CELL := 44.0
-	const GAP := 3.0
+	const CELL := 46.0
+	const GAP := 4.0
 	var game
 	var sel := -1
 	var on_select: Callable
 	func refresh() -> void:
-		custom_minimum_size = Vector2(game.cols * (CELL + GAP) + GAP, game.rows * (CELL + GAP) + GAP)
+		custom_minimum_size = Vector2(game.cols * (CELL + GAP) + GAP + 12, game.rows * (CELL + GAP) + GAP + 12)
 		if sel >= game.items.size():
 			sel = -1
 		queue_redraw()
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.62, 0.7, 0.7, 0.15))
+		var frame := Rect2(Vector2.ZERO, size)
+		draw_rect(frame, BRASS_D)
+		draw_rect(frame.grow(-3), BRASS)
+		draw_rect(frame.grow(-6), WOOD_D)
+		var o := Vector2(6, 6)
 		for r in game.rows:
 			for c in game.cols:
-				draw_rect(Rect2(GAP + c * (CELL + GAP), GAP + r * (CELL + GAP), CELL, CELL), Color("0c1d27"))
+				var cr := Rect2(o + Vector2(GAP + c * (CELL + GAP), GAP + r * (CELL + GAP)), Vector2(CELL, CELL))
+				draw_rect(cr, Color("140d09"))
+				draw_rect(cr, Color(BRASS, 0.12), false, 1.0)
 		var i := 0
+		var tt: float = game.t
 		for it in game.items:
 			var sh: Array = it["shape"]
-			var rect := Rect2(GAP + it["c"] * (CELL + GAP), GAP + it["r"] * (CELL + GAP), sh[0].size() * (CELL + GAP) - GAP, sh.size() * (CELL + GAP) - GAP)
-			draw_rect(rect, Color(0.82, 0.27, 0.23, 0.22) if it["mut"] else Color(0.43, 0.68, 0.49, 0.18))
-			load("res://scripts/ui.gd").draw_fish(self, rect.grow(-3), Data.FISH[it["key"]]["c"], it["mut"], sh.size() > sh[0].size())
+			var rect := Rect2(o + Vector2(GAP + it["c"] * (CELL + GAP), GAP + it["r"] * (CELL + GAP)), Vector2(sh[0].size() * (CELL + GAP) - GAP, sh.size() * (CELL + GAP) - GAP))
+			if it["mut"]:
+				draw_rect(rect, Color(BLOOD, 0.22 + 0.06 * sin(tt * 3.0 + i)))
+				draw_rect(rect, Color(BLOOD, 0.7), false, 1.5)
+			else:
+				draw_rect(rect, Color(SEA, 0.35))
+			load("res://scripts/ui.gd").draw_fish(self, rect.grow(-4), Data.FISH[it["key"]]["c"], it["mut"], sh.size() > sh[0].size())
 			if i == sel:
-				draw_rect(rect, Color("f2b33d"), false, 2.0)
+				draw_rect(rect.grow(2), SUN, false, 2.5)
 			i += 1
+	func _process(_d: float) -> void:
+		if is_visible_in_tree():
+			queue_redraw()
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			var c := int((event.position.x - GAP) / (CELL + GAP))
-			var r := int((event.position.y - GAP) / (CELL + GAP))
+			var c := int((event.position.x - 6 - GAP) / (CELL + GAP))
+			var r := int((event.position.y - 6 - GAP) / (CELL + GAP))
 			sel = -1
 			var i := 0
 			for it in game.items:
@@ -169,43 +475,39 @@ class HoldGrid extends Control:
 				on_select.call(sel)
 
 
-# ================= Construcción =================
+# =====================================================================
+# Construcción
+# =====================================================================
 
 func _ready() -> void:
 	var theme := Theme.new()
+	theme.default_font = F_UI
 	theme.default_font_size = 18
-	var panel_sb := StyleBoxFlat.new()
-	panel_sb.bg_color = Color(C_ABYSS, 0.94)
-	panel_sb.border_color = Color(C_SALT, 0.3)
-	panel_sb.set_border_width_all(1)
-	panel_sb.set_corner_radius_all(10)
-	panel_sb.set_content_margin_all(18)
-	theme.set_stylebox("panel", "PanelContainer", panel_sb)
 	var btn := StyleBoxFlat.new()
-	btn.bg_color = C_DEEP
-	btn.border_color = Color(C_SALT, 0.35)
-	btn.set_border_width_all(1)
-	btn.set_corner_radius_all(6)
-	btn.set_content_margin_all(10)
+	btn.bg_color = WOOD_D
+	btn.border_color = BRASS_D
+	btn.set_border_width_all(2)
+	btn.set_corner_radius_all(3)
+	btn.content_margin_left = 16
+	btn.content_margin_right = 16
+	btn.content_margin_top = 8
+	btn.content_margin_bottom = 8
 	var btn_h := btn.duplicate()
-	btn_h.bg_color = C_DEEP.lightened(0.15)
+	btn_h.border_color = BRASS
+	btn_h.bg_color = WOOD_L
 	var btn_d := btn.duplicate()
-	btn_d.bg_color = Color(C_DEEP, 0.4)
+	btn_d.bg_color = Color(WOOD_D, 0.5)
+	btn_d.border_color = Color(BRASS_D, 0.4)
 	theme.set_stylebox("normal", "Button", btn)
 	theme.set_stylebox("hover", "Button", btn_h)
 	theme.set_stylebox("pressed", "Button", btn_h)
 	theme.set_stylebox("disabled", "Button", btn_d)
 	theme.set_stylebox("focus", "Button", StyleBoxEmpty.new())
-	theme.set_color("font_color", "Button", C_FOAM)
-	theme.set_color("font_color", "Label", C_FOAM)
-	var bar_bg := StyleBoxFlat.new()
-	bar_bg.bg_color = Color(1, 1, 1, 0.08)
-	bar_bg.set_corner_radius_all(4)
-	var bar_fg := StyleBoxFlat.new()
-	bar_fg.bg_color = C_BLOOD
-	bar_fg.set_corner_radius_all(4)
-	theme.set_stylebox("background", "ProgressBar", bar_bg)
-	theme.set_stylebox("fill", "ProgressBar", bar_fg)
+	theme.set_color("font_color", "Button", FOAM)
+	theme.set_color("font_hover_color", "Button", SUN)
+	theme.set_color("font_disabled_color", "Button", Color(SALT, 0.5))
+	theme.set_font("font", "Button", F_UI_B)
+	theme.set_color("font_color", "Label", FOAM)
 
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -217,7 +519,7 @@ func _ready() -> void:
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vs := Shader.new()
-	vs.code = "shader_type canvas_item; uniform float amount = 0.0; void fragment(){ float d = distance(UV, vec2(0.5)); COLOR = vec4(0.5, 0.03, 0.03, smoothstep(0.35, 0.75, d) * amount); }"
+	vs.code = "shader_type canvas_item; uniform float amount = 0.0; uniform float t = 0.0; void fragment(){ float d = distance(UV, vec2(0.5)); float vein = 0.5 + 0.5 * sin(UV.x * 40.0 + t) * sin(UV.y * 30.0 - t * 0.7); COLOR = vec4(0.35, 0.02, 0.02, smoothstep(0.32, 0.78, d + vein * 0.05) * amount); }"
 	var vm := ShaderMaterial.new()
 	vm.shader = vs
 	vignette.material = vm
@@ -232,28 +534,19 @@ func _ready() -> void:
 	_build_intro(root)
 
 
-func _chip(parent: Control) -> VBoxContainer:
-	var pc := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(C_ABYSS, 0.72)
-	sb.border_color = Color(C_SALT, 0.25)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(6)
-	sb.set_content_margin_all(10)
-	pc.add_theme_stylebox_override("panel", sb)
-	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(pc)
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 2)
-	pc.add_child(vb)
-	return vb
-
-
-func _label(text: String, size := 18, color := C_FOAM) -> Label:
+func _label(text: String, size := 18, color := FOAM, font: Font = null) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
+	if font:
+		l.add_theme_font_override("font", font)
+	return l
+
+
+func _shadowed(l: Label) -> Label:
+	l.add_theme_constant_override("outline_size", 7)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
 	return l
 
 
@@ -263,20 +556,26 @@ func _button(text: String, cb: Callable, primary := false) -> Button:
 	b.pressed.connect(cb)
 	if primary:
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = C_SUN
-		sb.set_corner_radius_all(6)
-		sb.set_content_margin_all(12)
+		sb.bg_color = BRASS
+		sb.border_color = BRASS_D
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(3)
+		sb.content_margin_left = 18
+		sb.content_margin_right = 18
+		sb.content_margin_top = 9
+		sb.content_margin_bottom = 9
+		var sbh := sb.duplicate()
+		sbh.bg_color = SUN
 		b.add_theme_stylebox_override("normal", sb)
-		b.add_theme_stylebox_override("hover", sb)
-		b.add_theme_stylebox_override("pressed", sb)
-		b.add_theme_color_override("font_color", C_ABYSS)
-		b.add_theme_color_override("font_hover_color", C_ABYSS)
-		b.add_theme_color_override("font_pressed_color", C_ABYSS)
+		b.add_theme_stylebox_override("hover", sbh)
+		b.add_theme_stylebox_override("pressed", sbh)
+		for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+			b.add_theme_color_override(k, INK)
 	return b
 
 
-func _center_panel(root: Control, width := 480) -> PanelContainer:
-	var p := PanelContainer.new()
+func _center_panel(root: Control, width := 520) -> WoodPanel:
+	var p := WoodPanel.new()
 	p.set_anchors_preset(Control.PRESET_CENTER)
 	p.custom_minimum_size = Vector2(width, 0)
 	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -287,124 +586,140 @@ func _center_panel(root: Control, width := 480) -> PanelContainer:
 
 
 func _build_hud(root: Control) -> void:
-	var top := HBoxContainer.new()
-	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top.offset_left = 16
-	top.offset_right = -16
-	top.offset_top = 14
-	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(top)
+	dial = SunDial.new()
+	dial.game = main
+	dial.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	dial.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dial.offset_left = -190
+	dial.offset_right = 190
+	dial.offset_top = 18
+	dial.offset_bottom = 196
+	root.add_child(dial)
 
-	var c1 := _chip(top)
-	clock_lbl = _label("07:00", 30)
-	day_lbl = _label("Día 1", 13, C_SALT)
-	c1.add_child(clock_lbl)
-	c1.add_child(day_lbl)
+	place_lbl = _shadowed(_label("", 16, PAPER, F_TITLE_R))
+	place_lbl.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	place_lbl.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	place_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	place_lbl.offset_top = 198
+	root.add_child(place_lbl)
 
-	var sp1 := Control.new()
-	sp1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sp1.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.add_child(sp1)
+	var mp := PanelContainer.new()
+	var msb := wood_style(0.92)
+	msb.set_content_margin_all(14)
+	msb.content_margin_left = 20
+	msb.content_margin_right = 20
+	mp.add_theme_stylebox_override("panel", msb)
+	mp.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	mp.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	mp.offset_right = -20
+	mp.offset_top = 18
+	mp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(mp)
+	var mvb := VBoxContainer.new()
+	mvb.add_theme_constant_override("separation", 0)
+	mp.add_child(mvb)
+	money_lbl = _label("0 €", 34, SUN, F_TITLE)
+	money_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mvb.add_child(money_lbl)
+	debt_lbl = _label("", 14, SALT)
+	debt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mvb.add_child(debt_lbl)
 
-	var c2 := _chip(top)
-	var row := HBoxContainer.new()
-	row.add_child(_label("MIEDO", 13, C_SALT))
-	var sp := Control.new()
-	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(sp)
-	panic_lbl = _label("0%", 13, C_SALT)
-	row.add_child(panic_lbl)
-	c2.add_child(row)
-	panic_bar = ProgressBar.new()
-	panic_bar.custom_minimum_size = Vector2(200, 10)
-	panic_bar.show_percentage = false
-	c2.add_child(panic_bar)
+	note = PaperNote.new()
+	note.position = Vector2(26, 24)
+	root.add_child(note)
 
-	var sp2 := Control.new()
-	sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sp2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.add_child(sp2)
+	hint_box = PanelContainer.new()
+	var hsb := StyleBoxFlat.new()
+	hsb.bg_color = Color(WOOD_D, 0.85)
+	hsb.border_color = Color(BRASS, 0.5)
+	hsb.set_border_width_all(1)
+	hsb.set_corner_radius_all(20)
+	hsb.content_margin_left = 10
+	hsb.content_margin_right = 18
+	hsb.content_margin_top = 6
+	hsb.content_margin_bottom = 6
+	hint_box.add_theme_stylebox_override("panel", hsb)
+	hint_box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	hint_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	hint_box.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	hint_box.offset_bottom = -78
+	hint_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_box.visible = false
+	root.add_child(hint_box)
+	var hrow := HBoxContainer.new()
+	hrow.add_theme_constant_override("separation", 10)
+	hint_box.add_child(hrow)
+	hint_key = KeyCap.new("E")
+	hrow.add_child(hint_key)
+	hint_lbl = _label("", 19, FOAM, F_UI_B)
+	hrow.add_child(hint_lbl)
 
-	var c3 := _chip(top)
-	money_lbl = _label("0 €", 24, C_SUN)
-	debt_lbl = _label("Deuda del barco: 500 €", 13, C_SALT)
-	c3.add_child(money_lbl)
-	c3.add_child(debt_lbl)
+	toast_box = PanelContainer.new()
+	var tsb := wood_style(0.92)
+	tsb.set_content_margin_all(12)
+	tsb.content_margin_left = 22
+	tsb.content_margin_right = 22
+	toast_box.add_theme_stylebox_override("panel", tsb)
+	toast_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	toast_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	toast_box.offset_top = 234
+	toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(toast_box)
+	toast_lbl = _label("", 18, PAPER, F_TITLE_R)
+	toast_box.add_child(toast_lbl)
 
-	objective_lbl = _label("", 16, C_FOAM)
-	objective_lbl.position = Vector2(16, 118)
-	objective_lbl.custom_minimum_size = Vector2(460, 0)
-	objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_lbl.add_theme_constant_override("outline_size", 6)
-	objective_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	root.add_child(objective_lbl)
-
-	hint_lbl = RichTextLabel.new()
-	hint_lbl.bbcode_enabled = true
-	hint_lbl.fit_content = true
-	hint_lbl.scroll_active = false
-	hint_lbl.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	hint_lbl.custom_minimum_size = Vector2(700, 0)
-	hint_lbl.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	hint_lbl.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	hint_lbl.offset_bottom = -110
-	hint_lbl.add_theme_font_size_override("normal_font_size", 20)
-	hint_lbl.add_theme_constant_override("outline_size", 6)
-	hint_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	hint_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(hint_lbl)
-
-	toast_lbl = _label("", 18)
-	toast_lbl.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	toast_lbl.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	toast_lbl.offset_top = 110
-	toast_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	toast_lbl.add_theme_constant_override("outline_size", 6)
-	toast_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	root.add_child(toast_lbl)
-
-	var keys := _label("WASD / flechas: navegar   ·   E: acción   ·   F: farol   ·   I: bodega", 14, C_SALT)
+	var keys := HBoxContainer.new()
 	keys.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	keys.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	keys.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	keys.offset_bottom = -16
-	keys.add_theme_constant_override("outline_size", 4)
-	keys.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	keys.offset_bottom = -18
+	keys.add_theme_constant_override("separation", 8)
+	keys.modulate.a = 0.8
+	keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(keys)
+	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["I", "Bodega"]]:
+		keys.add_child(KeyCap.new(k[0]))
+		keys.add_child(_shadowed(_label(k[1] + "   ", 15, PAPER)))
 
 
 func _build_fishing(root: Control) -> void:
-	fish_panel = _center_panel(root)
+	fish_panel = _center_panel(root, 560)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 12)
+	vb.add_theme_constant_override("separation", 10)
 	fish_panel.add_child(vb)
-	fish_title = _label("Pescando…", 26)
+	vb.add_child(Plaque.new("SEDAL EN EL AGUA", 18))
+	fish_title = _label("Pescando…", 28, FOAM, F_TITLE)
 	vb.add_child(fish_title)
-	vb.add_child(_label("Pulsa Espacio (o haz clic) cuando la aguja esté en la zona verde.", 15, C_SALT))
+	vb.add_child(_label("Pulsa Espacio o haz clic cuando el corcho esté sobre el agua dorada.", 16, SALT))
 	fish_bar = FishBar.new()
 	fish_bar.game = main
-	fish_bar.custom_minimum_size = Vector2(0, 36)
 	vb.add_child(fish_bar)
 	var row := HBoxContainer.new()
 	vb.add_child(row)
-	var dots := _label("", 16, C_SALT)
-	dots.name = "Dots"
-	dots.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(dots)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(sp)
 	row.add_child(_button("Recoger sedal", func(): main.end_fishing(false, true)))
 
 
 func _build_catch(root: Control) -> void:
-	catch_panel = _center_panel(root)
+	catch_panel = _center_panel(root, 500)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	catch_panel.add_child(vb)
+	vb.add_child(Plaque.new("CAPTURA", 18))
 	catch_icon = FishIcon.new()
-	catch_icon.custom_minimum_size = Vector2(0, 130)
+	catch_icon.custom_minimum_size = Vector2(0, 150)
 	vb.add_child(catch_icon)
-	catch_name = _label("", 28)
-	vb.add_child(catch_name)
-	catch_desc = _label("", 16, C_SALT)
+	var nrow := HBoxContainer.new()
+	vb.add_child(nrow)
+	catch_name = _label("", 32, FOAM, F_TITLE)
+	catch_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nrow.add_child(catch_name)
+	catch_price = _label("", 28, SUN, F_TITLE)
+	nrow.add_child(catch_price)
+	catch_desc = _label("", 17, SALT)
 	catch_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(catch_desc)
 	var row := HBoxContainer.new()
@@ -420,18 +735,19 @@ func _build_catch(root: Control) -> void:
 
 
 func _build_hold(root: Control) -> void:
-	hold_panel = PanelContainer.new()
+	hold_panel = WoodPanel.new()
 	hold_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	hold_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	hold_panel.offset_right = -16
-	hold_panel.offset_top = 110
+	hold_panel.offset_right = -20
+	hold_panel.offset_top = 120
 	hold_panel.visible = false
 	root.add_child(hold_panel)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	hold_panel.add_child(vb)
-	vb.add_child(_label("Bodega", 26))
-	vb.add_child(_label("Haz clic en un pez para seleccionarlo.", 14, C_SALT))
+	vb.add_child(Plaque.new("BODEGA", 20))
+	hold_stats = _label("", 14, SALT)
+	vb.add_child(hold_stats)
 	hold_grid = HoldGrid.new()
 	hold_grid.game = main
 	hold_grid.on_select = _on_hold_select
@@ -445,78 +761,75 @@ func _build_hold(root: Control) -> void:
 		_on_hold_select(-1))
 	drop_btn.disabled = true
 	row.add_child(drop_btn)
-	hold_info = _label("", 15, C_SALT)
+	hold_info = _label("", 15, PAPER)
 	row.add_child(hold_info)
 	hold_grid.refresh()
 
 
 func _build_port(root: Control) -> void:
-	port_panel = _center_panel(root, 520)
+	port_panel = _center_panel(root, 560)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	port_panel.add_child(vb)
-	vb.add_child(_label("Puerto de Güímar", 28))
-	vb.add_child(_label("Aquí estás a salvo. La luz del puerto calma el miedo.", 15, C_SALT))
+	vb.add_child(Plaque.new("PUERTO DE GÜÍMAR", 20))
+	vb.add_child(_label("Aquí estás a salvo. La luz del puerto calma el miedo.", 16, SALT))
 	port_list = VBoxContainer.new()
 	port_list.add_theme_constant_override("separation", 8)
 	vb.add_child(port_list)
-	vb.add_child(_button("Zarpar", func():
+	var b := _button("Zarpar", func():
 		port_panel.visible = false
-		main.leave_port()))
+		main.leave_port(), true)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
+	vb.add_child(b)
 
 
 func _build_dialogue(root: Control) -> void:
-	dlg_panel = PanelContainer.new()
+	dlg_panel = WoodPanel.new()
 	dlg_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	dlg_panel.custom_minimum_size = Vector2(820, 0)
+	dlg_panel.custom_minimum_size = Vector2(900, 0)
 	dlg_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	dlg_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	dlg_panel.offset_bottom = -60
+	dlg_panel.offset_bottom = -64
 	dlg_panel.visible = false
 	root.add_child(dlg_panel)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	dlg_panel.add_child(row)
+	dlg_portrait = Portrait.new()
+	row.add_child(dlg_portrait)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	dlg_panel.add_child(vb)
-	dlg_name = _label("", 20, C_SUN)
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_theme_constant_override("separation", 6)
+	row.add_child(vb)
+	dlg_name = _label("", 24, SUN, F_TITLE)
 	vb.add_child(dlg_name)
-	dlg_text = _label("", 21, C_FOAM)
+	dlg_text = _label("", 22, FOAM)
 	dlg_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(dlg_text)
-	var cont := _label("E / Espacio · continuar", 13, C_SALT)
-	cont.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var cont := HBoxContainer.new()
+	cont.alignment = BoxContainer.ALIGNMENT_END
+	cont.add_child(KeyCap.new("E"))
+	cont.add_child(_label(" continuar", 14, SALT))
 	vb.add_child(cont)
 	dlg_panel.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed:
 			main.quest.next_line())
 
 
-func show_dialogue(who: String, text: String, _i: int, _n: int) -> void:
-	hold_panel.visible = false
-	dlg_name.text = who.to_upper()
-	dlg_name.add_theme_color_override("font_color", C_SUN if who == "Chaxiraxi" else Color("8fc3d6"))
-	dlg_text.text = text
-	dlg_panel.visible = true
-
-
-func close_dialogue() -> void:
-	dlg_panel.visible = false
-
-
 func _build_intro(root: Control) -> void:
-	# Capa de la cinemática: negro, rótulos, subtítulos y título.
+	# Capa de la cinemática: bandas de cine, rótulos, subtítulos y título.
 	intro = Control.new()
 	intro.set_anchors_preset(Control.PRESET_FULL_RECT)
 	intro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(intro)
-	for side in [Control.PRESET_TOP_WIDE, Control.PRESET_BOTTOM_WIDE]:
+	for top in [true, false]:
 		var band := ColorRect.new()
 		band.color = Color.BLACK
-		band.set_anchors_preset(side)
-		band.custom_minimum_size = Vector2(0, 90)
-		if side == Control.PRESET_TOP_WIDE:
-			band.offset_bottom = 90
+		band.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+		if top:
+			band.offset_bottom = 96
 		else:
-			band.offset_top = -90
+			band.offset_top = -96
 		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		intro.add_child(band)
 	cine_black = ColorRect.new()
@@ -524,7 +837,7 @@ func _build_intro(root: Control) -> void:
 	cine_black.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cine_black.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	intro.add_child(cine_black)
-	cine_card = _label("", 30, Color("e7dcc4"))
+	cine_card = _label("", 34, PAPER, F_TITLE_R)
 	cine_card.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cine_card.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cine_card.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -532,32 +845,36 @@ func _build_intro(root: Control) -> void:
 	cine_card.offset_left = 200
 	cine_card.offset_right = -200
 	intro.add_child(cine_card)
-	cine_sub = _label("", 24, C_FOAM)
+	cine_sub = _shadowed(_label("", 26, FOAM))
 	cine_sub.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	cine_sub.offset_top = -170
-	cine_sub.offset_bottom = -100
+	cine_sub.offset_top = -180
+	cine_sub.offset_bottom = -104
 	cine_sub.offset_left = 160
 	cine_sub.offset_right = -160
 	cine_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cine_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	cine_sub.add_theme_constant_override("outline_size", 8)
-	cine_sub.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	intro.add_child(cine_sub)
-	cine_title = _label("MAGEC", 150, C_SUN)
+	cine_title = _label("MAGEC", 170, SUN, F_TITLE)
 	cine_title.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cine_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cine_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	cine_title.add_theme_constant_override("outline_size", 14)
-	cine_title.add_theme_color_override("font_outline_color", Color(0.3, 0.15, 0.0, 0.6))
+	cine_title.add_theme_constant_override("outline_size", 16)
+	cine_title.add_theme_color_override("font_outline_color", Color(0.25, 0.12, 0.0, 0.7))
 	cine_title.modulate.a = 0.0
 	intro.add_child(cine_title)
-	var skip := _label("Esc / Espacio · Saltar", 14, C_SALT)
+	var skip := HBoxContainer.new()
 	skip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	skip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	skip.offset_right = -24
+	skip.offset_right = -28
 	skip.offset_top = 34
+	skip.add_child(KeyCap.new("Esc"))
+	skip.add_child(_label("  Saltar", 15, SALT))
 	intro.add_child(skip)
 
+
+# =====================================================================
+# API usada por main.gd, quest.gd y cinematic.gd
+# =====================================================================
 
 func cine_set(black: float, card: String, card_a: float, sub: String, sub_a: float, title_a: float) -> void:
 	cine_black.color.a = black
@@ -570,52 +887,66 @@ func cine_set(black: float, card: String, card_a: float, sub: String, sub_a: flo
 
 func end_cinematic() -> void:
 	intro.visible = false
-	toast("Busca las burbujas en el agua para pescar. E junto a ellas.")
+	toast("Busca las burbujas en el agua para pescar.")
 
-
-# ================= API usada por main.gd =================
 
 func toast(text: String) -> void:
 	toast_lbl.text = text
 	toast_time = 2.8
 
 
+func _set_hint(bb: String) -> void:
+	# Las pistas vienen como "[color=#f2b33d]E[/color] · texto"
+	var key := ""
+	var text := bb
+	var re := RegEx.new()
+	re.compile("\\[color=#f2b33d\\](\\w+)\\[/color\\]\\s*·?\\s*")
+	var m := re.search(bb)
+	if m:
+		key = m.get_string(1)
+		text = text.replace(m.get_string(0), "")
+	var strip := RegEx.new()
+	strip.compile("\\[[^\\]]*\\]")
+	text = strip.sub(text, "", true).strip_edges()
+	hint_box.visible = text != ""
+	hint_key.visible = key != ""
+	if key != "" and key != hint_key.key:
+		hint_key.set_key(key)
+	hint_lbl.text = text
+
+
 func update_hud() -> void:
-	var h: float = main.hour()
-	clock_lbl.text = "%02d:%02d" % [int(h), int(fmod(main.game_time, 60.0))]
-	day_lbl.text = "DÍA %d  ·  %s  ·  %s" % [main.day, "NOCHE" if main.is_night() else "DÍA", main.zone_name(main.bz).to_upper()]
+	var cine: bool = main.mode == "cinematic"
+	dial.visible = not cine
+	dial.queue_redraw()
 	money_lbl.text = "%d €" % main.money
-	debt_lbl.text = "Deuda del barco: %s" % ("%d €" % main.debt if main.debt > 0 else "pagada")
-	panic_bar.value = main.panic
-	panic_lbl.text = "%d%%" % int(main.panic)
+	debt_lbl.text = ("Deuda del barco: %d €" % main.debt) if main.debt > 0 else "Barco pagado"
+	place_lbl.text = "" if cine else "Costa de Güímar  ·  " + main.zone_name(main.bz)
+	note.set_text("" if cine else main.quest.objective())
 	vignette.material.set_shader_parameter("amount", clamp((main.panic - 60.0) / 40.0, 0.0, 1.0))
+	vignette.material.set_shader_parameter("t", main.t)
 
 	toast_time -= get_process_delta_time()
-	toast_lbl.modulate.a = clamp(toast_time / 0.4, 0.0, 1.0)
+	toast_box.modulate.a = clamp(toast_time / 0.4, 0.0, 1.0)
+	toast_box.visible = toast_time > 0.0
 
-	objective_lbl.text = "" if main.mode == "cinematic" else "◆ " + main.quest.objective()
 	var hint := ""
 	var qh: String = main.quest.hint() if main.mode == "sail" else ""
 	if qh != "":
 		hint = qh
 	elif main.mode == "sail":
 		if main.near_port():
-			hint = "[center][color=#f2b33d]E[/color] · Entrar al puerto de Güímar[/center]"
+			hint = "[color=#f2b33d]E[/color] · Entrar al puerto de Güímar"
 		else:
 			var s = main.near_spot()
 			if s != null:
-				hint = "[center][color=#f2b33d]E[/color] · Pescar (%s)%s[/center]" % [Data.ZONES[s["zone"]]["name"], " — [color=#d2453a]de noche salen mutantes[/color]" if main.is_night() else ""]
+				hint = "[color=#f2b33d]E[/color] · Pescar (%s)%s" % [Data.ZONES[s["zone"]]["name"], " · de noche salen mutantes" if main.is_night() else ""]
 			elif main.is_night() and not main.lamp_on:
-				hint = "[center]Está oscuro. Pulsa [color=#f2b33d]F[/color] para encender el farol.[/center]"
-	if hint_lbl.text != hint:
-		hint_lbl.text = hint
+				hint = "[color=#f2b33d]F[/color] · Está oscuro. Enciende el farol"
+	_set_hint(hint)
 
 	if fish_panel.visible:
 		fish_bar.queue_redraw()
-		var f: Dictionary = main.fishing
-		if not f.is_empty():
-			var dots: Label = fish_panel.find_child("Dots", true, false)
-			dots.text = "Aciertos: %s   Fallos: %s" % ["●".repeat(f["hits"]) + "○".repeat(3 - f["hits"]), "✕".repeat(f["miss"]) + "·".repeat(3 - f["miss"])]
 
 
 func open_fishing(title: String) -> void:
@@ -633,8 +964,9 @@ func open_catch(key: String, mut: bool, fits: bool) -> void:
 	catch_icon.mut = mut
 	catch_icon.queue_redraw()
 	catch_name.text = Data.fish_name(key, mut)
-	catch_name.add_theme_color_override("font_color", C_BLOOD if mut else C_FOAM)
-	catch_desc.text = "%s  ·  Valor: %d €" % [Data.FISH[key]["md"] if mut else Data.FISH[key]["d"], Data.fish_value(key, mut)]
+	catch_name.add_theme_color_override("font_color", Color("e2675b") if mut else FOAM)
+	catch_price.text = "%d €" % Data.fish_value(key, mut)
+	catch_desc.text = Data.FISH[key]["md"] if mut else Data.FISH[key]["d"]
 	keep_btn.disabled = not fits
 	keep_btn.text = "Guardar en bodega" if fits else "No cabe en la bodega"
 	catch_panel.visible = true
@@ -649,6 +981,8 @@ func refresh_hold() -> void:
 	if hold_grid == null:
 		return
 	hold_grid.refresh()
+	var lamp := "Farol de Magec" + (" (bendecido)" if main.lamp_mult < 1.0 else "")
+	hold_stats.text = "Motor: nivel %d   ·   %s   ·   Bodega: %d × %d" % [main.speed_lvl + 1, lamp, main.cols, main.rows]
 	_on_hold_select(hold_grid.sel)
 
 
@@ -667,20 +1001,38 @@ func open_port() -> void:
 	port_panel.visible = true
 
 
+func show_dialogue(who: String, text: String, _i: int, _n: int) -> void:
+	hold_panel.visible = false
+	dlg_portrait.who = who
+	dlg_portrait.queue_redraw()
+	dlg_name.text = who
+	dlg_name.add_theme_color_override("font_color", SUN if who == "Chaxiraxi" else Color("9cc8d8"))
+	dlg_text.text = text
+	dlg_panel.visible = true
+
+
+func close_dialogue() -> void:
+	dlg_panel.visible = false
+
+
 func _port_line(title: String, sub: String, btn_text: String, disabled: bool, cb: Callable) -> void:
 	var pc := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("0c1d27")
-	sb.set_corner_radius_all(6)
+	sb.bg_color = Color(WOOD_D, 0.8)
+	sb.border_color = Color(BRASS, 0.2)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3)
 	sb.set_content_margin_all(10)
+	sb.content_margin_left = 14
 	pc.add_theme_stylebox_override("panel", sb)
 	port_list.add_child(pc)
 	var row := HBoxContainer.new()
 	pc.add_child(row)
 	var vb := VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vb.add_child(_label(title, 18))
-	vb.add_child(_label(sub, 14, C_SALT))
+	vb.add_theme_constant_override("separation", 0)
+	vb.add_child(_label(title, 20, FOAM, F_TITLE_R))
+	vb.add_child(_label(sub, 14, SALT))
 	row.add_child(vb)
 	var b := _button(btn_text, func():
 		cb.call()
@@ -694,7 +1046,7 @@ func _render_port() -> void:
 		c.queue_free()
 	var total: int = main.hold_value()
 	_port_line("Vender la pesca", "%d peces en la bodega" % main.items.size(), "+%d €" % total, total == 0, main.sell_all)
-	_port_line("Pagar deuda del barco", "Quedan %d €" % main.debt if main.debt > 0 else "Pagada", "Pagar", main.money <= 0 or main.debt <= 0, main.pay_debt)
+	_port_line("Pagar deuda del barco", ("Quedan %d €" % main.debt) if main.debt > 0 else "Pagada", "Pagar", main.money <= 0 or main.debt <= 0, main.pay_debt)
 	if main.speed_lvl < 2:
 		_port_line("Motor nuevo", "Navegas más rápido", "%d €" % main.engine_price(), main.money < main.engine_price(), main.buy_engine)
 	if main.rows < 5:
