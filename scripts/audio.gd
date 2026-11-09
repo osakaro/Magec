@@ -4,7 +4,7 @@ extends Node
 
 var main
 
-const LOOPS := ["ocean", "wind", "engine", "heartbeat", "day_music", "night_drone", "rain"]
+const LOOPS := ["ocean", "wind", "engine", "heartbeat", "day_music", "night_drone", "rain", "menu_music"]
 var loops := {}
 var level := {}   # volumen lineal actual de cada bucle
 
@@ -18,7 +18,7 @@ func _ready() -> void:
 			AudioServer.set_bus_send(i, "Master")
 	for n in LOOPS:
 		var p := AudioStreamPlayer.new()
-		p.bus = "Musica" if n in ["day_music", "night_drone"] else "Efectos"
+		p.bus = "Musica" if n in ["day_music", "night_drone", "menu_music"] else "Efectos"
 		p.stream = load("res://audio/%s.wav" % n)
 		p.volume_db = -80.0
 		add_child(p)
@@ -50,17 +50,24 @@ func _process(dt: float) -> void:
 	if main == null:
 		return
 	var l: float = main.daylight()
-	var cine: bool = main.mode == "cinematic" or main.mode == "menu"
+	var menu: bool = main.mode == "menu"
+	var cine: bool = main.mode == "cinematic" or menu
+	var at_sea: bool = not menu
 	var vmax: float = 9.0 + main.speed_lvl * 3.5
 	var spd: float = clamp(abs(main.bv) / vmax, 0.0, 1.0)
-
-	_vol("ocean", 0.55, dt)
 	var wb: Dictionary = main.weather.blend
-	_vol("wind", 0.18 + (1.0 - l) * 0.25 + main.panic / 100.0 * 0.2 + float(wb["wind"]), dt)
+
+	# Menú: solo la música tranquila de la portada
+	_vol("menu_music", 0.8 if menu else 0.0, dt, 0.6)
+	# Ambiente del mar: solo cuando estás en el agua (cinemática incluida)
+	_vol("ocean", 0.5 if at_sea else 0.0, dt)
+	_vol("wind", 0.0 if menu else 0.15 + (1.0 - l) * 0.2 + main.panic / 100.0 * 0.2 + float(wb["wind"]), dt)
 	_vol("rain", 0.0 if cine else float(wb["rain"]) * 0.5, dt, 0.3)
-	_vol("engine", 0.0 if cine else 0.06 + spd * 0.4, dt, 2.0)
+	_vol("engine", 0.0 if cine else 0.05 + spd * 0.35, dt, 2.0)
 	loops["engine"].pitch_scale = 0.8 + spd * 0.5
-	_vol("day_music", 0.0 if cine or main.panic > 30.0 else clamp((l - 0.4) * 2.0, 0.0, 1.0) * 0.35, dt, 0.3)
-	_vol("night_drone", clamp((0.5 - l) * 2.0, 0.0, 1.0) * (0.25 if cine else 0.4), dt, 0.3)
-	_vol("heartbeat", clamp((main.panic - 45.0) / 50.0, 0.0, 1.0) * 0.9, dt)
+	# Música: de día el timple, de noche el pedal inquietante
+	var day_m: float = clamp((l - 0.35) * 2.0, 0.0, 1.0) * (0.75 if main.panic < 30.0 else 0.2)
+	_vol("day_music", 0.0 if cine else day_m, dt, 0.3)
+	_vol("night_drone", 0.0 if menu else clamp((0.5 - l) * 2.0, 0.0, 1.0) * (0.4 if cine else 0.65), dt, 0.3)
+	_vol("heartbeat", 0.0 if menu else clamp((main.panic - 45.0) / 50.0, 0.0, 1.0) * 0.9, dt)
 	loops["heartbeat"].pitch_scale = 0.9 + main.panic / 160.0

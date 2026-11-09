@@ -117,7 +117,100 @@ def heartbeat():
 
 
 # ---------- Música ----------
+def mtof(m):
+    return 440 * 2 ** ((m - 69) / 12)
+
+
+def reverb(x, secs=2.6, mix=0.35):
+    """Reverberación por convolución con una cola de ruido que decae."""
+    n = int(SR * secs)
+    ir = rng.normal(0, 1, n) * np.exp(-np.arange(n) / (SR * secs / 6))
+    ir = lowpass(ir, 3500)
+    ir /= np.sqrt(np.sum(ir ** 2))
+    size = 1 << int(np.ceil(np.log2(len(x) + n)))
+    wet = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[: len(x) + n]
+    # la cola vuelve al principio para que el bucle sea continuo
+    tail = wet[len(x):]
+    wet = wet[: len(x)].copy()
+    wet[: len(tail)] += tail
+    return x * (1 - mix) + norm(wet, np.max(np.abs(x)) or 1) * mix
+
+
+def pad(freqs, sec, cutoff=1400, attack=1.5):
+    """Colchón de cuerdas: sierras desafinadas y filtradas."""
+    tt = t(sec)
+    x = np.zeros(len(tt))
+    for f in freqs:
+        for d in (-0.12, 0.0, 0.11):
+            ph = rng.uniform(0, 1)
+            x += 2 * ((tt * f * (1 + d / 100) + ph) % 1) - 1
+    x = lowpass(x, cutoff)
+    e = np.minimum(tt / attack, 1) * np.minimum((sec - tt) / attack, 1)
+    return x * np.clip(e, 0, 1)
+
+
+def compose(chords, bpm, beats_per_chord, arp, melody, pad_vol=0.25, pluck_vol=0.55, bass_vol=0.35, mel_vol=0.4):
+    beat = 60 / bpm
+    total = len(chords) * beats_per_chord * beat
+    x = np.zeros(int(SR * (total + 3)))
+    for ci, ch in enumerate(chords):
+        start = ci * beats_per_chord * beat
+        s0 = int(start * SR)
+        p = pad([mtof(m) for m in ch[1:]], beats_per_chord * beat + 1.0)
+        x[s0:s0 + len(p)] += p * pad_vol / 3
+        # bajo
+        b = t(beats_per_chord * beat)
+        bass = np.sin(2 * np.pi * mtof(ch[0]) * b) * np.exp(-b / 3.0)
+        x[s0:s0 + len(bass)] += bass * bass_vol
+        # arpegio de timple
+        steps = int(beats_per_chord * 2)
+        for k in range(steps):
+            m = ch[1:][arp[k % len(arp)] % (len(ch) - 1)] + (12 if arp[k % len(arp)] >= len(ch) - 1 else 0)
+            tone = pluck(mtof(m), 1.6, 0.996) * (1.0 if k % 4 == 0 else 0.7)
+            i0 = int((start + k * beat / 2) * SR)
+            x[i0:i0 + len(tone)] += tone * pluck_vol
+    # melodía (nota, inicio en pulsos, duración en pulsos)
+    for m, st, du in melody:
+        tt = t(du * beat + 0.5)
+        f = mtof(m)
+        vib = 1 + 0.004 * np.sin(2 * np.pi * 5 * tt) * np.minimum(tt / 0.4, 1)
+        tone = np.sin(2 * np.pi * f * np.cumsum(vib) / SR) + 0.3 * np.sin(4 * np.pi * f * np.cumsum(vib) / SR)
+        tone *= np.minimum(tt / 0.08, 1) * np.exp(-np.maximum(tt - du * beat, 0) / 0.2) * (0.85 + 0.15 * np.exp(-tt))
+        i0 = int(st * beat * SR)
+        x[i0:i0 + len(tone)] += tone * mel_vol
+    x = x[: int(SR * total)]
+    return x
+
+
+def menu_music():
+    # La menor, lenta y melancólica: Am - F - C - G - Am - F - Dm - E
+    A = [45, 57, 60, 64]
+    F = [41, 57, 60, 65]
+    C = [36, 55, 60, 64]
+    G = [43, 55, 59, 62]
+    Dm = [38, 57, 62, 65]
+    E = [40, 56, 59, 64]
+    chords = [A, F, C, G, A, F, Dm, E]
+    mel = [(76, 0, 3), (74, 3, 1), (72, 4, 4), (69, 8, 3), (67, 11, 1), (69, 12, 4),
+           (72, 16, 2), (74, 18, 2), (76, 20, 4), (79, 24, 3), (77, 27, 1), (76, 28, 4)]
+    x = compose(chords, 66, 4, [0, 1, 2, 1, 3, 2, 1, 2], mel, pad_vol=0.3, pluck_vol=0.45, mel_vol=0.22)
+    return norm(reverb(lowpass(x, 5000), 3.2, 0.42), 0.75)
+
+
 def day_music():
+    # Re mixolidio, luminoso: D - C - G - D
+    D = [38, 62, 66, 69]
+    C = [36, 60, 64, 67]
+    G = [43, 62, 67, 71]
+    A = [45, 61, 64, 69]
+    chords = [D, C, G, D, D, C, G, A]
+    mel = [(74, 2, 1), (76, 3, 1), (78, 4, 2), (76, 6, 2), (74, 8, 3), (72, 11, 1), (71, 12, 4),
+           (74, 18, 1), (76, 19, 1), (78, 20, 2), (81, 22, 2), (79, 24, 3), (76, 27, 1), (73, 28, 4)]
+    x = compose(chords, 92, 4, [0, 1, 2, 3, 2, 1, 2, 3], mel, pad_vol=0.18, pluck_vol=0.6, mel_vol=0.18)
+    return norm(reverb(lowpass(x, 5500), 2.0, 0.25), 0.75)
+
+
+def _old_day_music():
     # Arpegio de timple en Re mixolidio, tranquilo y luminoso.
     bpm = 84
     beat = 60 / bpm
@@ -150,7 +243,7 @@ def night_drone():
     whistle = np.sin(2 * np.pi * (880 + 40 * np.sin(2 * np.pi * tt / 3)) * tt)
     whistle *= np.clip(np.sin(2 * np.pi * (tt - 5) / 16.5), 0, 1) ** 6 * 0.08
     x += whistle + 0.05 * lowpass(rng.normal(0, 1, len(tt)), 200)
-    return norm(loopify(x, 1.0), 0.6)
+    return norm(reverb(loopify(x, 1.0), 4.0, 0.4), 0.7)
 
 
 # ---------- Efectos ----------
@@ -269,5 +362,5 @@ def stone():
 if __name__ == "__main__":
     for fn in (ocean, wind, engine, heartbeat, day_music, night_drone,
                rumble, splash, catch, mutant, hit, miss, knock, lamp, stone,
-               rain, growl, crack, dolphin, gull):
+               rain, growl, crack, dolphin, gull, menu_music):
         save(fn.__name__, fn())
