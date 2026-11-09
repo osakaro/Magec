@@ -9,6 +9,9 @@ const Cinematic = preload("res://scripts/cinematic.gd")
 const Audio = preload("res://scripts/audio.gd")
 const Quest = preload("res://scripts/quest.gd")
 const Gear = preload("res://scripts/gear.gd")
+const Hazards = preload("res://scripts/hazards.gd")
+const Weather = preload("res://scripts/weather.gd")
+const Life = preload("res://scripts/life.gd")
 
 # Altura de las olas (la cinemática la sube durante el temblor)
 static var amp := 1.0
@@ -68,6 +71,11 @@ var cine
 var audio
 var quest
 var gear
+var hazards
+var weather
+var life
+var hull := 3
+var hull_max := 3
 var journal := {}   # especie -> {"n": vista normal, "m": vista mutante, "count": nº}
 
 
@@ -97,6 +105,15 @@ func _ready() -> void:
 	gear = Gear.new()
 	gear.main = self
 	add_child(gear)
+	hazards = Hazards.new()
+	hazards.main = self
+	add_child(hazards)
+	weather = Weather.new()
+	weather.main = self
+	add_child(weather)
+	life = Life.new()
+	life.main = self
+	add_child(life)
 	match start_action:
 		"new":
 			cine = Cinematic.new()
@@ -429,13 +446,19 @@ func _apply_light() -> void:
 	sky_mat.ground_horizon_color = hor
 	sky_mat.ground_bottom_color = night_top.lerp(Color("1b2a2f"), l)
 	sky_mat.sun_angle_max = 30
+	var wb: Dictionary = weather.blend if weather else {"fog": 0.0, "tint": Color(0, 0, 0, 0), "sun": 1.0}
+	var tint: Color = wb["tint"]
+	hor = hor.lerp(Color(tint.r, tint.g, tint.b) * (0.25 + 0.75 * l), tint.a)
+	sky_mat.sky_horizon_color = hor
+	sky_mat.ground_horizon_color = hor
+	sky_mat.sky_top_color = sky_mat.sky_top_color.lerp(hor, tint.a * 0.6)
 	env.fog_light_color = hor
-	env.fog_density = lerp(0.03, 0.004, l) + panic * 0.00015
+	env.fog_density = lerp(0.03, 0.004, l) + panic * 0.00015 + float(wb["fog"])
 	env.ambient_light_energy = 0.2 + l * 0.5
 	# Sol: sube y baja con la hora
 	var sun_elev := sin(PI * (h - 6.0) / 12.0) * 70.0
 	sun.rotation_degrees = Vector3(-max(sun_elev, -5.0), -30.0 + (h - 12.0) * 10.0, 0)
-	sun.light_energy = 0.05 + l * 0.95
+	sun.light_energy = (0.05 + l * 0.95) * float(wb["sun"])
 	sun.light_color = Color(1.0, 0.9, 0.75).lerp(Color("ffb070"), dusk_amt)
 	moon.light_energy = (1.0 - l) * 0.25
 	port_light.light_energy = (1.0 - l * 2.0) * 2.5 if l < 0.5 else 0.0
@@ -765,6 +788,7 @@ func save_game() -> void:
 		"bx": bx, "bz": bz, "ba": ba,
 		"quest_state": quest.state, "stones": quest.stones,
 		"journal": journal, "gear": gear.to_dict(),
+		"hull": hull, "weather": weather.to_dict(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -808,6 +832,8 @@ func load_game() -> bool:
 	quest.stones = int(d.get("stones", 0))
 	journal = d.get("journal", {})
 	gear.from_dict(d.get("gear", {}))
+	hull = int(d.get("hull", hull_max))
+	weather.from_dict(d.get("weather", {}))
 	camera.position = Vector3(bx + sin(ba) * 20.0, 13.0, bz + cos(ba) * 20.0)
 	return true
 
@@ -870,6 +896,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	var dt: float = min(delta, 0.05)
 	t += dt
+	if mode != "cinematic" and mode != "menu":
+		amp = move_toward(amp, float(weather.blend["amp"]), dt * 0.3)
 	_update_boat(dt)
 	_update_world(dt)
 	_update_panic(dt)
@@ -909,7 +937,10 @@ func _update_boat(dt: float) -> void:
 	var nx := bx - sin(ba) * bv * dt
 	var nzp := bz - cos(ba) * bv * dt
 	var on_dock: bool = abs(nx) < 2.6 and nzp < -53.0 and nzp > -79.0
-	if land_h(nx, nzp) > -0.8 or on_dock:
+	if hazards.rock_at(nx, nzp) != null:
+		hazards.hit_rock(bv)
+		bv *= -0.4
+	elif land_h(nx, nzp) > -0.8 or on_dock:
 		if abs(bv) > 0.5:
 			ui.toast("¡Cuidado con las rocas!")
 		bv *= -0.3
@@ -968,18 +999,9 @@ func _update_panic(dt: float) -> void:
 		panic = min(100.0, panic + dt * ((0.8 * lamp_mult if lamp_on else 3.2) + far * 2.2))
 	else:
 		panic = max(0.0, panic - dt * 3.0)
-	if panic >= 100.0:
-		panic = 55.0
-		bv = -4.0
-		audio.sfx("knock")
-		if items.size() > 0:
-			var i := randi() % items.size()
-			var lost: Dictionary = items[i]
-			items.remove_at(i)
-			ui.toast("Algo golpea el casco… Has perdido: " + Data.fish_name(lost["key"], lost["mut"]))
-			ui.refresh_hold()
-		else:
-			ui.toast("Algo golpea el casco. Vuelve a puerto.")
+	if night and not in_port:
+		hazards.maybe_hunt(dt)
+	panic = min(panic, 100.0)
 
 	# Ojos de Tibicena
 	var eye_on := night and panic > 35.0 and not in_port

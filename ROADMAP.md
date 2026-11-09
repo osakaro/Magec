@@ -22,10 +22,10 @@ Lista de pasos a seguir, en orden de prioridad. Se marca con [x] lo que ya está
 - [x] Redes y nasas; más peces de Tenerife
 
 ## 3 · Más vida y tensión en el mar
-- [ ] Rocas y bajíos que dañan el casco; daños y reparación en puerto
-- [ ] Tibicena que sale del agua y persigue al barco
-- [ ] Clima: calima, lluvia, mar picada
-- [ ] Gaviotas, delfines y otras barcas de día
+- [x] Rocas y bajíos que dañan el casco; daños y reparación en puerto
+- [x] Tibicena que sale del agua y persigue al barco
+- [x] Clima: calima, lluvia, mar picada
+- [x] Gaviotas, delfines y otras barcas de día
 
 ## 4 · Historia
 - [ ] Gran Canaria: puerto grande y el armador

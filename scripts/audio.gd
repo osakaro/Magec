@@ -4,7 +4,7 @@ extends Node
 
 var main
 
-const LOOPS := ["ocean", "wind", "engine", "heartbeat", "day_music", "night_drone"]
+const LOOPS := ["ocean", "wind", "engine", "heartbeat", "day_music", "night_drone", "rain"]
 var loops := {}
 var level := {}   # volumen lineal actual de cada bucle
 
@@ -55,7 +55,9 @@ func _process(dt: float) -> void:
 	var spd: float = clamp(abs(main.bv) / vmax, 0.0, 1.0)
 
 	_vol("ocean", 0.55, dt)
-	_vol("wind", 0.18 + (1.0 - l) * 0.25 + main.panic / 100.0 * 0.2, dt)
+	var wb: Dictionary = main.weather.blend
+	_vol("wind", 0.18 + (1.0 - l) * 0.25 + main.panic / 100.0 * 0.2 + float(wb["wind"]), dt)
+	_vol("rain", 0.0 if cine else float(wb["rain"]) * 0.5, dt, 0.3)
 	_vol("engine", 0.0 if cine else 0.06 + spd * 0.4, dt, 2.0)
 	loops["engine"].pitch_scale = 0.8 + spd * 0.5
 	_vol("day_music", 0.0 if cine or main.panic > 30.0 else clamp((l - 0.4) * 2.0, 0.0, 1.0) * 0.35, dt, 0.3)

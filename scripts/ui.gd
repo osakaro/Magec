@@ -30,6 +30,9 @@ var main
 var dial: SunDial
 var money_lbl: Label
 var debt_lbl: Label
+var hull_lbl: Label
+var shake_amt := 0.0
+var root_ctl: Control
 var place_lbl: Label
 var note: PaperNote
 var hint_box: PanelContainer
@@ -646,6 +649,9 @@ func _build_hud(root: Control) -> void:
 	debt_lbl = _label("", 14, SALT)
 	debt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	mvb.add_child(debt_lbl)
+	hull_lbl = _label("", 15, PAPER, F_UI_B)
+	hull_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mvb.add_child(hull_lbl)
 
 	note = PaperNote.new()
 	note.position = Vector2(26, 24)
@@ -996,6 +1002,10 @@ func end_cinematic() -> void:
 	toast("Busca las burbujas en el agua para pescar.")
 
 
+func shake(amount: float) -> void:
+	shake_amt = max(shake_amt, amount)
+
+
 func toast(text: String) -> void:
 	toast_lbl.text = text
 	toast_time = 2.8
@@ -1029,7 +1039,19 @@ func update_hud() -> void:
 	dial.queue_redraw()
 	money_lbl.text = "%d €" % main.money
 	debt_lbl.text = ("Deuda del barco: %d €" % main.debt) if main.debt > 0 else "Barco pagado"
-	place_lbl.text = "" if cine else "Costa de Güímar  ·  " + main.zone_name(main.bz)
+	place_lbl.text = "" if cine else "Costa de Güímar  ·  %s  ·  %s" % [main.zone_name(main.bz), main.weather.name_now()]
+	var hull_txt := "Casco  "
+	for i in main.hull_max:
+		hull_txt += "■ " if i < main.hull else "□ "
+	hull_lbl.text = hull_txt
+	hull_lbl.add_theme_color_override("font_color", PAPER if main.hull > 1 else Color("e2675b"))
+	if shake_amt > 0.0:
+		shake_amt = max(0.0, shake_amt - get_process_delta_time())
+		main.camera.h_offset = randf_range(-1, 1) * shake_amt * 0.6
+		main.camera.v_offset = randf_range(-1, 1) * shake_amt * 0.6
+	else:
+		main.camera.h_offset = 0.0
+		main.camera.v_offset = 0.0
 	note.set_text("" if cine else main.quest.objective())
 	vignette.material.set_shader_parameter("amount", clamp((main.panic - 60.0) / 40.0, 0.0, 1.0))
 	vignette.material.set_shader_parameter("t", main.t)
@@ -1168,6 +1190,12 @@ func _render_port() -> void:
 		_port_line("Motor nuevo", "Navegas más rápido", "%d €" % main.engine_price(), main.money < main.engine_price(), main.buy_engine)
 	if main.rows < 5:
 		_port_line("Ampliar bodega", "Una fila más de espacio", "%d €" % main.hold_price(), main.money < main.hold_price(), main.buy_hold)
+	if main.hull < main.hull_max:
+		var rc: int = 40 * (main.hull_max - main.hull)
+		_port_line("Reparar el casco", "Casco %d/%d. Los astilleros de Güímar lo dejan como nuevo." % [main.hull, main.hull_max], "%d €" % rc, main.money < rc, func():
+			main.money -= rc
+			main.hull = main.hull_max
+			toast("Casco reparado."))
 	var g = main.gear
 	if g.nasas_owned < g.MAX_NASAS:
 		_port_line("Nasa para pulpos y morenas", "Échala con N y vuelve a por ella horas después. Tienes %d." % g.nasas_owned, "%d €" % g.NASA_PRICE, main.money < g.NASA_PRICE, func():

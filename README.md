@@ -25,6 +25,10 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 
 ## Qué hay en esta versión
 
+- 30 rocas y bajíos (anillo de espuma). Casco con 3 puntos: si llega a 0 naufragas, pierdes la carga y te remolcan. Se repara en el puerto.
+- El Tibicena: de noche, con mucho miedo, sale del agua y te persigue. Con el farol encendido no se acerca; sin él, muerde el casco.
+- Clima que cambia cada pocas horas: despejado, calima, lluvia y mar picada.
+- Gaviotas sobre el puerto, delfines que saltan junto al barco y dos barcas de otros pescadores (de noche vuelven a puerto).
 - 15 especies de Tenerife con su mutante. Cuatro minijuegos: normal, rápido (4 aciertos), zigzag y tirón (el agua dorada se mueve). De noche el agua dorada parpadea.
 - Cuaderno de especies (C). Nasas (N) que se llenan con las horas y red de arrastre (R) que pesca mientras navegas.
 - Menú principal (Continuar / Nueva partida / Opciones / Salir), pausa con Esc y opciones de volumen y pantalla completa.

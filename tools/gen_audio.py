@@ -212,6 +212,50 @@ def lamp():
     return norm(x * env(len(tt), 0.01, 0.25), 0.4)
 
 
+def rain():
+    tt = t(10.5)
+    noise = rng.normal(0, 1, len(tt))
+    x = highpass(lowpass(noise, 6000), 1500) * 0.6 + lowpass(noise, 400) * 0.5
+    drops = (rng.random(len(tt)) > 0.9993).astype(float)
+    x += highpass(lowpass(drops, 3000), 800) * 6
+    return norm(loopify(x), 0.6)
+
+
+def growl():
+    # gruñido del Tibicena: tono grave con aspereza
+    tt = t(2.2)
+    f = 70 + 15 * np.sin(2 * np.pi * 3 * tt)
+    phase = np.cumsum(2 * np.pi * f / SR)
+    x = np.sign(np.sin(phase)) * 0.6 + np.sin(phase * 2) * 0.3
+    x *= 0.6 + 0.4 * lowpass(np.abs(rng.normal(0, 1, len(tt))), 30) * 3
+    x = lowpass(x, 700)
+    return norm(x * env(len(tt), 0.2, 0.9), 0.9)
+
+
+def crack():
+    # casco contra roca
+    n = int(SR * 0.9)
+    k = np.arange(n) / SR
+    x = np.sin(2 * np.pi * (70 - 40 * k) * k) * np.exp(-k * 9)
+    x += lowpass(rng.normal(0, 1, n), 2500) * np.exp(-k * 14) * 0.8
+    return norm(x, 0.95)
+
+
+def dolphin():
+    tt = t(0.6)
+    f = 2200 + 1400 * np.sin(2 * np.pi * 4 * tt)
+    x = np.sin(np.cumsum(2 * np.pi * f / SR)) * env(len(tt), 0.02, 0.2)
+    return norm(x, 0.35)
+
+
+def gull():
+    tt = t(0.7)
+    f = 1400 - 600 * tt
+    x = np.sin(np.cumsum(2 * np.pi * f / SR)) + 0.3 * highpass(rng.normal(0, 1, len(tt)), 2000)
+    x *= np.clip(np.sin(np.pi * tt / 0.7), 0, 1) ** 0.5
+    return norm(x, 0.3)
+
+
 def stone():
     # La Piedra de Magec al encenderse: acorde que se abre.
     tt = t(4.0)
@@ -224,5 +268,6 @@ def stone():
 
 if __name__ == "__main__":
     for fn in (ocean, wind, engine, heartbeat, day_music, night_drone,
-               rumble, splash, catch, mutant, hit, miss, knock, lamp, stone):
+               rumble, splash, catch, mutant, hit, miss, knock, lamp, stone,
+               rain, growl, crack, dolphin, gull):
         save(fn.__name__, fn())
