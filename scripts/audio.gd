@@ -10,8 +10,15 @@ var level := {}   # volumen lineal actual de cada bucle
 
 
 func _ready() -> void:
+	for bus in ["Musica", "Efectos"]:
+		if AudioServer.get_bus_index(bus) == -1:
+			AudioServer.add_bus()
+			var i := AudioServer.bus_count - 1
+			AudioServer.set_bus_name(i, bus)
+			AudioServer.set_bus_send(i, "Master")
 	for n in LOOPS:
 		var p := AudioStreamPlayer.new()
+		p.bus = "Musica" if n in ["day_music", "night_drone"] else "Efectos"
 		p.stream = load("res://audio/%s.wav" % n)
 		p.volume_db = -80.0
 		add_child(p)
@@ -19,6 +26,8 @@ func _ready() -> void:
 		p.play()
 		loops[n] = p
 		level[n] = 0.0
+	if main and main.ui:
+		main.ui._apply_options()
 
 
 func sfx(name: String, vol_db := 0.0, pitch := 1.0) -> void:
@@ -26,6 +35,7 @@ func sfx(name: String, vol_db := 0.0, pitch := 1.0) -> void:
 	p.stream = load("res://audio/%s.wav" % name)
 	p.volume_db = vol_db
 	p.pitch_scale = pitch
+	p.bus = "Efectos"
 	add_child(p)
 	p.finished.connect(p.queue_free)
 	p.play()
@@ -40,7 +50,7 @@ func _process(dt: float) -> void:
 	if main == null:
 		return
 	var l: float = main.daylight()
-	var cine: bool = main.mode == "cinematic"
+	var cine: bool = main.mode == "cinematic" or main.mode == "menu"
 	var vmax: float = 9.0 + main.speed_lvl * 3.5
 	var spd: float = clamp(abs(main.bv) / vmax, 0.0, 1.0)
 

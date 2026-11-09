@@ -62,6 +62,14 @@ var dlg_name: Label
 var dlg_text: Label
 
 var intro: Control
+var hud_nodes: Array = []
+var menu_layer: Control
+var menu_buttons: VBoxContainer
+var menu_confirm: HBoxContainer
+var pause_panel: WoodPanel
+var options_panel: WoodPanel
+var opt := {"master": 0.8, "music": 0.8, "sfx": 0.9, "fullscreen": false}
+const OPT_PATH := "user://opciones.cfg"
 var cine_black: ColorRect
 var cine_card: Label
 var cine_sub: Label
@@ -303,6 +311,7 @@ class PaperNote extends Control:
 		size = custom_minimum_size
 		rotation = deg_to_rad(-1.8)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		visible = false
 	func set_text(t: String) -> void:
 		if t == text:
 			return
@@ -532,6 +541,11 @@ func _ready() -> void:
 	_build_port(root)
 	_build_dialogue(root)
 	_build_intro(root)
+	_build_menu(root)
+	_build_pause(root)
+	_build_options(root)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	_load_options()
 
 
 func _label(text: String, size := 18, color := FOAM, font: Font = null) -> Label:
@@ -615,6 +629,7 @@ func _build_hud(root: Control) -> void:
 	mp.offset_top = 18
 	mp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(mp)
+	hud_nodes.append(mp)
 	var mvb := VBoxContainer.new()
 	mvb.add_theme_constant_override("separation", 0)
 	mp.add_child(mvb)
@@ -678,6 +693,7 @@ func _build_hud(root: Control) -> void:
 	keys.modulate.a = 0.8
 	keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(keys)
+	hud_nodes.append(keys)
 	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["I", "Bodega"]]:
 		keys.add_child(KeyCap.new(k[0]))
 		keys.add_child(_shadowed(_label(k[1] + "   ", 15, PAPER)))
@@ -916,7 +932,9 @@ func _set_hint(bb: String) -> void:
 
 
 func update_hud() -> void:
-	var cine: bool = main.mode == "cinematic"
+	var cine: bool = main.mode == "cinematic" or main.mode == "menu"
+	for n in hud_nodes:
+		n.visible = not cine
 	dial.visible = not cine
 	dial.queue_redraw()
 	money_lbl.text = "%d €" % main.money
@@ -1054,3 +1072,218 @@ func _render_port() -> void:
 	if main.is_night():
 		_port_line("Dormir hasta el amanecer", "Pasa la noche en casa", "Dormir", false, main.sleep)
 	refresh_hold()
+
+
+# =====================================================================
+# Menú principal, pausa y opciones
+# =====================================================================
+
+func _menu_button(text: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = "   " + text
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.flat = true
+	b.add_theme_font_override("font", F_TITLE)
+	b.add_theme_font_size_override("font_size", 34)
+	b.add_theme_color_override("font_color", PAPER)
+	b.add_theme_color_override("font_hover_color", SUN)
+	b.add_theme_color_override("font_focus_color", SUN)
+	b.add_theme_color_override("font_pressed_color", SUN)
+	b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	b.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	b.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	b.mouse_entered.connect(func(): b.text = "◆ " + text)
+	b.mouse_exited.connect(func(): b.text = "   " + text)
+	b.pressed.connect(cb)
+	return b
+
+
+func _build_menu(root: Control) -> void:
+	menu_layer = Control.new()
+	menu_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	menu_layer.visible = false
+	root.add_child(menu_layer)
+	# degradado oscuro a la izquierda para leer el título
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.03, 0.02, 0.02, 0.92))
+	grad.set_color(1, Color(0.03, 0.02, 0.02, 0.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(1, 0)
+	var shade := TextureRect.new()
+	shade.texture = gt
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	shade.offset_right = 900
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	menu_layer.add_child(shade)
+
+	var vb := VBoxContainer.new()
+	vb.position = Vector2(110, 150)
+	vb.add_theme_constant_override("separation", 6)
+	menu_layer.add_child(vb)
+	var title := _label("MAGEC", 150, SUN, F_TITLE)
+	title.add_theme_constant_override("outline_size", 14)
+	title.add_theme_color_override("font_outline_color", Color(0.25, 0.12, 0.0, 0.7))
+	vb.add_child(title)
+	vb.add_child(_label("Pesca y terror en las Islas Canarias", 24, PAPER, F_TITLE_R))
+	var sp := Control.new()
+	sp.custom_minimum_size = Vector2(0, 50)
+	vb.add_child(sp)
+	menu_buttons = VBoxContainer.new()
+	menu_buttons.add_theme_constant_override("separation", 4)
+	vb.add_child(menu_buttons)
+	menu_confirm = HBoxContainer.new()
+	menu_confirm.add_theme_constant_override("separation", 12)
+	menu_confirm.visible = false
+	vb.add_child(menu_confirm)
+	menu_confirm.add_child(_label("Esto borrará tu partida guardada.", 18, SALT))
+	menu_confirm.add_child(_button("Empezar de nuevo", func(): main.new_game(), true))
+	menu_confirm.add_child(_button("Cancelar", func(): menu_confirm.visible = false))
+
+	var foot := _label("Güímar, Tenerife  ·  versión de desarrollo", 14, SALT)
+	foot.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	foot.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	foot.offset_left = 110
+	foot.offset_bottom = -40
+	menu_layer.add_child(foot)
+
+
+func open_menu(has_save: bool) -> void:
+	intro.visible = false
+	for c in menu_buttons.get_children():
+		c.queue_free()
+	if has_save:
+		menu_buttons.add_child(_menu_button("Continuar", func(): main.continue_game()))
+	menu_buttons.add_child(_menu_button("Nueva partida", func():
+		if has_save:
+			menu_confirm.visible = true
+		else:
+			main.new_game()))
+	menu_buttons.add_child(_menu_button("Opciones", open_options))
+	menu_buttons.add_child(_menu_button("Salir", func(): get_tree().quit()))
+	menu_layer.visible = true
+
+
+func _build_pause(root: Control) -> void:
+	pause_panel = _center_panel(root, 380)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	pause_panel.add_child(vb)
+	vb.add_child(Plaque.new("PAUSA", 22))
+	for b in [
+		_button("Continuar", close_pause, true),
+		_button("Guardar partida", func():
+			main.save_game()
+			toast("Partida guardada.")),
+		_button("Opciones", open_options),
+		_button("Guardar y volver al menú", func():
+			main.save_game()
+			main.to_main_menu()),
+		_button("Guardar y salir", func():
+			main.save_game()
+			get_tree().quit()),
+	]:
+		b.custom_minimum_size = Vector2(0, 44)
+		vb.add_child(b)
+
+
+func open_pause() -> void:
+	hold_panel.visible = false
+	get_tree().paused = true
+	pause_panel.visible = true
+
+
+func close_pause() -> void:
+	pause_panel.visible = false
+	options_panel.visible = false
+	get_tree().paused = false
+
+
+func _slider_row(vb: VBoxContainer, title: String, key: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	vb.add_child(row)
+	var l := _label(title, 18, FOAM, F_TITLE_R)
+	l.custom_minimum_size = Vector2(170, 0)
+	row.add_child(l)
+	var s := HSlider.new()
+	s.min_value = 0.0
+	s.max_value = 1.0
+	s.step = 0.05
+	s.value = opt[key]
+	s.custom_minimum_size = Vector2(240, 24)
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	s.value_changed.connect(func(v):
+		opt[key] = v
+		_apply_options()
+		_save_options())
+	row.add_child(s)
+
+
+func _build_options(root: Control) -> void:
+	options_panel = _center_panel(root, 480)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 14)
+	options_panel.add_child(vb)
+	vb.add_child(Plaque.new("OPCIONES", 22))
+	_slider_row(vb, "Volumen general", "master")
+	_slider_row(vb, "Música", "music")
+	_slider_row(vb, "Efectos y mar", "sfx")
+	var fs := CheckButton.new()
+	fs.text = "Pantalla completa"
+	fs.add_theme_font_override("font", F_TITLE_R)
+	fs.add_theme_font_size_override("font_size", 18)
+	fs.button_pressed = opt["fullscreen"]
+	fs.toggled.connect(func(on):
+		opt["fullscreen"] = on
+		_apply_options()
+		_save_options())
+	vb.add_child(fs)
+	var b := _button("Volver", func(): options_panel.visible = false, true)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
+	vb.add_child(b)
+
+
+func open_options() -> void:
+	options_panel.visible = true
+
+
+func _load_options() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(OPT_PATH) == OK:
+		for k in opt.keys():
+			opt[k] = cf.get_value("opciones", k, opt[k])
+	_apply_options()
+	# refrescar controles con los valores cargados
+	options_panel.queue_free()
+	_build_options(options_panel.get_parent())
+
+
+func _save_options() -> void:
+	var cf := ConfigFile.new()
+	for k in opt.keys():
+		cf.set_value("opciones", k, opt[k])
+	cf.save(OPT_PATH)
+
+
+func _apply_options() -> void:
+	AudioServer.set_bus_volume_db(0, linear_to_db(max(opt["master"], 0.0001)))
+	for pair in [["Musica", "music"], ["Efectos", "sfx"]]:
+		var i := AudioServer.get_bus_index(pair[0])
+		if i != -1:
+			AudioServer.set_bus_volume_db(i, linear_to_db(max(opt[pair[1]], 0.0001)))
+	var want := DisplayServer.WINDOW_MODE_FULLSCREEN if opt["fullscreen"] else DisplayServer.WINDOW_MODE_WINDOWED
+	if DisplayServer.window_get_mode() != want and DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(want)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_ESCAPE:
+		if options_panel.visible:
+			options_panel.visible = false
+			get_viewport().set_input_as_handled()
+		elif pause_panel.visible:
+			close_pause()
+			get_viewport().set_input_as_handled()

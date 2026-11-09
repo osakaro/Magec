@@ -208,6 +208,7 @@ func got_stone() -> void:
 	main.panic = min(100.0, main.panic + 20.0)
 	main.audio.sfx("stone", -4.0, 0.7)
 	main.ui.toast("Has sacado la Piedra de Magec. Está fría como el fondo del mar.")
+	main.save_game()
 
 
 func _reward() -> void:
@@ -235,6 +236,7 @@ func next_line() -> void:
 		main.mode = "sail"
 		if after_dialogue.is_valid():
 			after_dialogue.call()
+		main.save_game()
 		return
 	_show()
 
@@ -261,7 +263,7 @@ func _process(_dt: float) -> void:
 			i += 1
 	chax_light.light_energy = move_toward(chax_light.light_energy, 1.5 + (1.0 - main.daylight()) * 1.5, _dt)
 	var tg = target()
-	beacon.visible = tg != null and main.mode != "cinematic"
+	beacon.visible = tg != null and main.mode != "cinematic" and main.mode != "menu"
 	if beacon.visible:
 		beacon.position = Vector3(tg.x, 35, tg.y)
 		beacon_mat.albedo_color.a = 0.14 + 0.08 * sin(tt * 2.0)

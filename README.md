@@ -18,10 +18,12 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 | Espacio | Golpe en el minijuego de pesca |
 | F | Farol de Magec |
 | I | Bodega |
-| Esc | Recoger sedal |
+| Esc | Pausa / recoger sedal |
 
 ## Qué hay en esta versión
 
+- Menú principal (Continuar / Nueva partida / Opciones / Salir), pausa con Esc y opciones de volumen y pantalla completa.
+- Guardado automático al dormir, al zarpar del puerto y al avanzar la misión; también se puede guardar desde la pausa.
 - Cinemática de inicio (se salta con Esc o Espacio): Aridane y San Borondón, treinta años después, el temblor y el farol de Chaxiraxi.
 - Sonido sintetizado: mar, viento, motor, timple de día, música inquietante de noche, latido con el miedo, golpes y efectos (`tools/gen_audio.py` los regenera).
 - Misión 1 «La primera Piedra»: Chaxiraxi junto a las Pirámides de Güímar, diálogos, la Piedra de Magec de noche en el fondo y mejora del farol.

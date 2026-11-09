@@ -219,4 +219,5 @@ func finish() -> void:
 	island.queue_free()
 	main.mode = "sail"
 	main.ui.end_cinematic()
+	main.save_game()
 	queue_free()

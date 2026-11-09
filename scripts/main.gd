@@ -12,6 +12,11 @@ const Quest = preload("res://scripts/quest.gd")
 # Altura de las olas (la cinemática la sube durante el temblor)
 static var amp := 1.0
 
+# Qué hacer al cargar la escena: "" (menú), "new" o "continue"
+static var start_action := ""
+
+const SAVE_PATH := "user://partida.json"
+
 const SHORE := -70.0
 const PORT := Vector3(0, 0, -58)
 const OCEAN_SIZE := 400.0
@@ -86,9 +91,25 @@ func _ready() -> void:
 	quest = Quest.new()
 	quest.main = self
 	add_child(quest)
-	cine = Cinematic.new()
-	cine.main = self
-	add_child(cine)
+	match start_action:
+		"new":
+			cine = Cinematic.new()
+			cine.main = self
+			add_child(cine)
+		"continue":
+			load_game()
+			mode = "sail"
+			ui.end_cinematic()
+			ui.toast("Partida cargada. Día %d." % day)
+		_:
+			# Menú principal: el barco amarrado en Güímar al atardecer
+			mode = "menu"
+			game_time = 19.4 * 60.0
+			bx = 4.5
+			bz = -62.0
+			ba = PI * 0.5
+			ui.open_menu(has_save())
+	start_action = ""
 	_apply_light()
 
 
@@ -652,11 +673,95 @@ func sleep() -> void:
 	panic = 0.0
 	for s in spots:
 		s["left"] = 3
-	ui.toast("Duermes en casa. Amanece el día %d." % day)
+	ui.toast("Duermes en casa. Amanece el día %d. Partida guardada." % day)
+	save_game()
 
 
 func leave_port() -> void:
 	mode = "sail"
+	save_game()
+
+
+# ---------- Guardar y cargar ----------
+static func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+func save_game() -> void:
+	var its: Array = []
+	for it in items:
+		its.append({"key": it["key"], "mut": it["mut"], "shape": it["shape"], "r": it["r"], "c": it["c"]})
+	var left: Array = []
+	for s in spots:
+		left.append(s["left"])
+	var data := {
+		"version": 1,
+		"game_time": game_time, "day": day, "money": money, "debt": debt,
+		"lamp_mult": lamp_mult, "speed_lvl": speed_lvl, "rows": rows,
+		"items": its, "spots": left,
+		"bx": bx, "bz": bz, "ba": ba,
+		"quest_state": quest.state, "stones": quest.stones,
+	}
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(data, "\t"))
+		f.close()
+
+
+func load_game() -> bool:
+	if not has_save():
+		return false
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return false
+	var d = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(d) != TYPE_DICTIONARY:
+		return false
+	game_time = float(d.get("game_time", 420.0))
+	day = int(d.get("day", 1))
+	money = int(d.get("money", 0))
+	debt = int(d.get("debt", 500))
+	lamp_mult = float(d.get("lamp_mult", 1.0))
+	speed_lvl = int(d.get("speed_lvl", 0))
+	rows = int(d.get("rows", 3))
+	bx = float(d.get("bx", 0.0))
+	bz = float(d.get("bz", -46.0))
+	ba = float(d.get("ba", PI))
+	items.clear()
+	for it in d.get("items", []):
+		var sh: Array = []
+		for row in it["shape"]:
+			var r2: Array = []
+			for v in row:
+				r2.append(int(v))
+			sh.append(r2)
+		items.append({"key": str(it["key"]), "mut": bool(it["mut"]), "shape": sh, "r": int(it["r"]), "c": int(it["c"])})
+	var left: Array = d.get("spots", [])
+	for i in min(left.size(), spots.size()):
+		spots[i]["left"] = int(left[i])
+	quest.state = str(d.get("quest_state", "talk1"))
+	quest.stones = int(d.get("stones", 0))
+	camera.position = Vector3(bx + sin(ba) * 20.0, 13.0, bz + cos(ba) * 20.0)
+	return true
+
+
+func new_game() -> void:
+	start_action = "new"
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func continue_game() -> void:
+	start_action = "continue"
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func to_main_menu() -> void:
+	start_action = ""
+	get_tree().paused = false
+	get_tree().reload_current_scene()
 
 
 # ---------- Entrada ----------
@@ -673,6 +778,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			strike()
 		elif k == KEY_ESCAPE:
 			end_fishing(false, true)
+		return
+	if mode == "sail" and k == KEY_ESCAPE:
+		ui.open_pause()
+		get_viewport().set_input_as_handled()
 		return
 	if mode != "sail":
 		return
@@ -745,7 +854,11 @@ func _update_boat(dt: float) -> void:
 	boat.basis = Basis.from_euler(Vector3(gz * 0.8, ba, -gx * 0.8))
 
 	var target := Vector3(bx + sin(ba) * 20.0, 13.0, bz + cos(ba) * 20.0)
-	if mode != "cinematic":
+	if mode == "menu":
+		var a := t * 0.05 + 2.2
+		camera.position = Vector3(4.5 + cos(a) * 30.0, 9.0, -50.0 + sin(a) * 18.0)
+		camera.look_at(Vector3(-10, 6, -90))
+	elif mode != "cinematic":
 		camera.position = camera.position.lerp(target, 1.0 - pow(0.02, dt))
 		camera.look_at(Vector3(bx, 1.5, bz))
 
@@ -771,7 +884,7 @@ func _update_world(dt: float) -> void:
 
 
 func _update_panic(dt: float) -> void:
-	if mode == "cinematic":
+	if mode == "cinematic" or mode == "menu":
 		return
 	var night := is_night()
 	var in_port := Vector2(bx - PORT.x, bz - PORT.z).length() < 26.0
