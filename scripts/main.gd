@@ -5,6 +5,10 @@ extends Node3D
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
 const OCEAN_SHADER = preload("res://shaders/ocean.gdshader")
+const Cinematic = preload("res://scripts/cinematic.gd")
+
+# Altura de las olas (la cinemática la sube durante el temblor)
+static var amp := 1.0
 
 const SHORE := -70.0
 const PORT := Vector3(0, 0, -58)
@@ -12,7 +16,7 @@ const OCEAN_SIZE := 400.0
 const OCEAN_SUBDIV := 180
 
 # ---------- Estado ----------
-var mode := "intro"   # intro, sail, fish, catch, port
+var mode := "cinematic"   # cinematic, sail, fish, catch, port
 var game_time := 7.0 * 60.0   # minutos desde el inicio
 var day := 1
 var money := 0
@@ -51,6 +55,7 @@ var spots: Array = []
 var eyes: Array = []
 var eye_mat: StandardMaterial3D
 var ui
+var cine
 
 
 func _ready() -> void:
@@ -70,12 +75,15 @@ func _ready() -> void:
 	ui = UI.new()
 	ui.main = self
 	add_child(ui)
+	cine = Cinematic.new()
+	cine.main = self
+	add_child(cine)
 	_apply_light()
 
 
 # ---------- Funciones del mundo ----------
 static func wave(x: float, z: float, tt: float) -> float:
-	return 0.45 * sin(0.12 * x + tt * 0.8) + 0.30 * sin(0.17 * z - tt * 1.1) + 0.15 * sin(0.45 * (x + z) + tt * 1.7)
+	return amp * (0.45 * sin(0.12 * x + tt * 0.8) + 0.30 * sin(0.17 * z - tt * 1.1) + 0.15 * sin(0.45 * (x + z) + tt * 1.7))
 
 
 static func nz(x: float, z: float) -> float:
@@ -261,45 +269,54 @@ func _build_port() -> void:
 
 
 func _build_boat() -> void:
-	# Barquillo canario: blanco con franja azul y roja.
-	boat = Node3D.new()
-	add_child(boat)
-	var white := _mat(Color("f2f2ec"), 0.6)
+	# Barquillo canario de Acorán: blanco con franja azul y roja.
+	var b := make_boat(Color("f2f2ec"), Color("1d5aa6"), Color("c0392b"))
+	boat = b["node"]
+	lamp_light = b["light"]
+	lamp_mat = b["lamp_mat"]
+
+
+func make_boat(hull_col: Color, stripe1: Color, stripe2: Color) -> Dictionary:
+	var node := Node3D.new()
+	add_child(node)
+	var white := _mat(hull_col, 0.6)
 	var hull := BoxMesh.new()
 	hull.size = Vector3(2.4, 1.1, 5)
-	_mesh(hull, white, Vector3(0, 0.2, 0), boat)
+	_mesh(hull, white, Vector3(0, 0.2, 0), node)
 	var bow := PrismMesh.new()
 	bow.size = Vector3(2.4, 2.2, 1.1)
-	var bow_mi := _mesh(bow, white, Vector3(0, 0.2, -3.6), boat)
+	var bow_mi := _mesh(bow, white, Vector3(0, 0.2, -3.6), node)
 	bow_mi.rotation_degrees.x = -90
 	var s1 := BoxMesh.new()
 	s1.size = Vector3(2.46, 0.22, 5.02)
-	_mesh(s1, _mat(Color("1d5aa6"), 0.5), Vector3(0, 0.55, 0), boat)
+	_mesh(s1, _mat(stripe1, 0.5), Vector3(0, 0.55, 0), node)
 	var s2 := BoxMesh.new()
 	s2.size = Vector3(2.46, 0.12, 5.02)
-	_mesh(s2, _mat(Color("c0392b"), 0.5), Vector3(0, 0.3, 0), boat)
+	_mesh(s2, _mat(stripe2, 0.5), Vector3(0, 0.3, 0), node)
 	var cabin := BoxMesh.new()
 	cabin.size = Vector3(1.6, 1.2, 1.6)
-	_mesh(cabin, _mat(Color("dfe6e2"), 0.7), Vector3(0, 1.3, 0.9), boat)
+	_mesh(cabin, _mat(hull_col.darkened(0.08), 0.7), Vector3(0, 1.3, 0.9), node)
 	var mast := CylinderMesh.new()
 	mast.top_radius = 0.07
 	mast.bottom_radius = 0.07
 	mast.height = 3
-	_mesh(mast, _mat(Color("6b4a2f")), Vector3(0, 2.6, -0.6), boat)
+	_mesh(mast, _mat(Color("6b4a2f")), Vector3(0, 2.6, -0.6), node)
 	var bulb := SphereMesh.new()
 	bulb.radius = 0.22
 	bulb.height = 0.44
-	lamp_mat = _mat(Color("553311"))
-	lamp_mat.emission_enabled = true
-	lamp_mat.emission = Color("ffe7a0")
-	lamp_mat.emission_energy_multiplier = 0.0
-	_mesh(bulb, lamp_mat, Vector3(0, 4.1, -0.6), boat)
-	lamp_light = OmniLight3D.new()
-	lamp_light.light_color = Color("ffd27a")
-	lamp_light.omni_range = 38
-	lamp_light.shadow_enabled = true
-	lamp_light.position = Vector3(0, 4.2, -0.6)
-	boat.add_child(lamp_light)
+	var lm := _mat(Color("553311"))
+	lm.emission_enabled = true
+	lm.emission = Color("ffe7a0")
+	lm.emission_energy_multiplier = 0.0
+	_mesh(bulb, lm, Vector3(0, 4.1, -0.6), node)
+	var light := OmniLight3D.new()
+	light.light_color = Color("ffd27a")
+	light.omni_range = 38
+	light.shadow_enabled = true
+	light.light_energy = 0.0
+	light.position = Vector3(0, 4.2, -0.6)
+	node.add_child(light)
+	return {"node": node, "light": light, "lamp_mat": lm}
 
 
 func _build_spots() -> void:
@@ -384,8 +401,9 @@ func _apply_light() -> void:
 	sun.light_color = Color(1.0, 0.9, 0.75).lerp(Color("ffb070"), dusk_amt)
 	moon.light_energy = (1.0 - l) * 0.25
 	port_light.light_energy = (1.0 - l * 2.0) * 2.5 if l < 0.5 else 0.0
-	lamp_light.light_energy = (1.6 + (1.0 - l) * 1.4) if lamp_on else 0.0
-	lamp_mat.emission_energy_multiplier = 4.0 if lamp_on else 0.0
+	if mode != "cinematic":
+		lamp_light.light_energy = (1.6 + (1.0 - l) * 1.4) if lamp_on else 0.0
+		lamp_mat.emission_energy_multiplier = 4.0 if lamp_on else 0.0
 	ocean_mat.set_shader_parameter("daylight", l)
 
 
@@ -687,14 +705,16 @@ func _update_boat(dt: float) -> void:
 	boat.basis = Basis.from_euler(Vector3(gz * 0.8, ba, -gx * 0.8))
 
 	var target := Vector3(bx + sin(ba) * 20.0, 13.0, bz + cos(ba) * 20.0)
-	camera.position = camera.position.lerp(target, 1.0 - pow(0.02, dt))
-	camera.look_at(Vector3(bx, 1.5, bz))
+	if mode != "cinematic":
+		camera.position = camera.position.lerp(target, 1.0 - pow(0.02, dt))
+		camera.look_at(Vector3(bx, 1.5, bz))
 
 
 func _update_world(dt: float) -> void:
 	var cell := OCEAN_SIZE / OCEAN_SUBDIV
 	ocean.position = Vector3(round(bx / cell) * cell, 0, round(bz / cell) * cell)
 	ocean_mat.set_shader_parameter("time_s", t)
+	ocean_mat.set_shader_parameter("amp", amp)
 	for s in spots:
 		var vis: bool = s["left"] > 0
 		s["g"].visible = vis
@@ -711,7 +731,7 @@ func _update_world(dt: float) -> void:
 
 
 func _update_panic(dt: float) -> void:
-	if mode == "intro":
+	if mode == "cinematic":
 		return
 	var night := is_night()
 	var in_port := Vector2(bx - PORT.x, bz - PORT.z).length() < 26.0

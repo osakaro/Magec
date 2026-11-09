@@ -25,6 +25,10 @@ var toast_time := 0.0
 var vignette: ColorRect
 
 var intro: Control
+var cine_black: ColorRect
+var cine_card: Label
+var cine_sub: Label
+var cine_title: Label
 var fish_panel: PanelContainer
 var fish_title: Label
 var fish_bar: FishBar
@@ -449,38 +453,74 @@ func _build_port(root: Control) -> void:
 
 
 func _build_intro(root: Control) -> void:
-	intro = ColorRect.new()
-	intro.color = Color(C_ABYSS, 0.92)
+	# Capa de la cinemática: negro, rótulos, subtítulos y título.
+	intro = Control.new()
 	intro.set_anchors_preset(Control.PRESET_FULL_RECT)
+	intro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(intro)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	intro.add_child(center)
-	var vb := VBoxContainer.new()
-	vb.custom_minimum_size = Vector2(620, 0)
-	vb.add_theme_constant_override("separation", 14)
-	center.add_child(vb)
-	var title := _label("MAGEC", 110, C_SUN)
-	vb.add_child(title)
-	vb.add_child(_label("PROTOTIPO  ·  COSTA DE GÜÍMAR, TENERIFE", 14, C_SALT))
-	for txt in [
-		"Acorán es pescador en la caleta de Güímar, como su abuelo Aridane, que desapareció hace treinta años buscando San Borondón.",
-		"Desde el temblor bajo el mar, lo que sale en las redes de noche ya no es normal. Chaxiraxi le ha dado un farol que, dice, guarda la luz de Magec.",
-		"Debes 500 € del barco. Pesca de día. Si sales de noche, enciende el farol… y no te alejes demasiado del puerto.",
-	]:
-		var l := _label(txt, 18, Color("cdd9d4"))
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vb.add_child(l)
-	var ctr := _label("WASD o flechas para navegar · E junto a las burbujas para pescar · E en el muelle para vender · F farol · I bodega. El tiempo solo pasa cuando navegas o pescas.", 15, C_SALT)
-	ctr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(ctr)
-	var b := _button("Zarpar", func():
-		intro.visible = false
-		main.mode = "sail"
-		toast("Busca las burbujas en el agua para pescar."), true)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	b.custom_minimum_size = Vector2(160, 0)
-	vb.add_child(b)
+	for side in [Control.PRESET_TOP_WIDE, Control.PRESET_BOTTOM_WIDE]:
+		var band := ColorRect.new()
+		band.color = Color.BLACK
+		band.set_anchors_preset(side)
+		band.custom_minimum_size = Vector2(0, 90)
+		if side == Control.PRESET_TOP_WIDE:
+			band.offset_bottom = 90
+		else:
+			band.offset_top = -90
+		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		intro.add_child(band)
+	cine_black = ColorRect.new()
+	cine_black.color = Color.BLACK
+	cine_black.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cine_black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	intro.add_child(cine_black)
+	cine_card = _label("", 30, Color("e7dcc4"))
+	cine_card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cine_card.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cine_card.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cine_card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cine_card.offset_left = 200
+	cine_card.offset_right = -200
+	intro.add_child(cine_card)
+	cine_sub = _label("", 24, C_FOAM)
+	cine_sub.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	cine_sub.offset_top = -170
+	cine_sub.offset_bottom = -100
+	cine_sub.offset_left = 160
+	cine_sub.offset_right = -160
+	cine_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cine_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cine_sub.add_theme_constant_override("outline_size", 8)
+	cine_sub.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	intro.add_child(cine_sub)
+	cine_title = _label("MAGEC", 150, C_SUN)
+	cine_title.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cine_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cine_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cine_title.add_theme_constant_override("outline_size", 14)
+	cine_title.add_theme_color_override("font_outline_color", Color(0.3, 0.15, 0.0, 0.6))
+	cine_title.modulate.a = 0.0
+	intro.add_child(cine_title)
+	var skip := _label("Esc / Espacio · Saltar", 14, C_SALT)
+	skip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	skip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	skip.offset_right = -24
+	skip.offset_top = 34
+	intro.add_child(skip)
+
+
+func cine_set(black: float, card: String, card_a: float, sub: String, sub_a: float, title_a: float) -> void:
+	cine_black.color.a = black
+	cine_card.text = card
+	cine_card.modulate.a = card_a
+	cine_sub.text = sub
+	cine_sub.modulate.a = sub_a
+	cine_title.modulate.a = title_a
+
+
+func end_cinematic() -> void:
+	intro.visible = false
+	toast("Busca las burbujas en el agua para pescar. E junto a ellas.")
 
 
 # ================= API usada por main.gd =================

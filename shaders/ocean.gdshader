@@ -2,6 +2,7 @@ shader_type spatial;
 
 uniform float time_s = 0.0;
 uniform float daylight = 1.0;
+uniform float amp = 1.0;
 uniform vec3 deep_color : source_color = vec3(0.02, 0.13, 0.19);
 uniform vec3 shallow_color : source_color = vec3(0.06, 0.30, 0.37);
 
@@ -9,9 +10,9 @@ varying float h;
 
 // Must match Main.wave() in main.gd
 float wave(vec2 p, float t) {
-	return 0.45 * sin(0.12 * p.x + t * 0.8)
+	return amp * (0.45 * sin(0.12 * p.x + t * 0.8)
 		+ 0.30 * sin(0.17 * p.y - t * 1.1)
-		+ 0.15 * sin(0.45 * (p.x + p.y) + t * 1.7);
+		+ 0.15 * sin(0.45 * (p.x + p.y) + t * 1.7));
 }
 
 void vertex() {

@@ -22,6 +22,7 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 
 ## Qué hay en esta versión
 
+- Cinemática de inicio (se salta con Esc o Espacio): Aridane y San Borondón, treinta años después, el temblor y el farol de Chaxiraxi.
 - Costa de Güímar con el Teide al fondo, muelle y casas.
 - Mar con olas (shader), ciclo de día y noche; el tiempo pasa al navegar o pescar.
 - 12 puntos de pesca en 3 zonas (orilla, aguas medias, fondo).
