@@ -34,7 +34,11 @@ static func _c(hexs: String, mut: bool, k := 0.4) -> Color:
 	return c.lerp(MUT_TINT, k) if mut else c
 
 
-static func draw(ci: CanvasItem, rect: Rect2, key: String, mut: bool, vertical := false, silhouette := false) -> void:
+static var anim := -1.0   # tiempo de animación (cola y aletas); < 0 = quieto
+
+
+static func draw(ci: CanvasItem, rect: Rect2, key: String, mut: bool, vertical := false, silhouette := false, anim_t := -1.0) -> void:
+	anim = anim_t
 	var st: Dictionary = STYLE.get(key, STYLE["vieja"])
 	var o := rect.position
 	var w := rect.size.x
@@ -88,6 +92,7 @@ static func _fish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary
 		lower.append(Vector2(x0 + u * L, cy + hb))
 	var tail_x := x0 + L
 	var tail_h := H * 0.62
+	var wig: float = sin(anim * 6.0) * H * 0.16 if anim >= 0.0 else 0.0
 	# aleta caudal
 	var tail := PackedVector2Array()
 	match st.get("tail", "fork"):
@@ -97,32 +102,76 @@ static func _fish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary
 			tail = PackedVector2Array([Vector2(tail_x - 2, cy - H * 0.07), Vector2(tail_x + w * 0.2, cy - tail_h * 0.75), Vector2(tail_x + w * 0.1, cy), Vector2(tail_x + w * 0.2, cy + tail_h * 0.75), Vector2(tail_x - 2, cy + H * 0.07)])
 		_:
 			tail = PackedVector2Array([Vector2(tail_x - 2, cy - H * 0.09), Vector2(tail_x + w * 0.18, cy - tail_h * 0.62), Vector2(tail_x + w * 0.1, cy), Vector2(tail_x + w * 0.18, cy + tail_h * 0.62), Vector2(tail_x - 2, cy + H * 0.09)])
-	ci.draw_colored_polygon(tail, finc)
+	# la cola se mueve: los puntos de fuera se desplazan
+	if wig != 0.0:
+		for i in tail.size():
+			var k: float = clamp((tail[i].x - tail_x) / (w * 0.18), 0.0, 1.0)
+			tail[i].y += wig * k
+	if not sil:
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(x0 + L * 0.1, cy + H * 0.62), Vector2(x0 + L * 0.9, cy + H * 0.6), Vector2(x0 + L * 0.5, cy + H * 0.7)]), Color(0, 0, 0, 0.0))
+		_shadow(ci, Vector2(x0 + L * 0.55, cy + H * 0.62), L * 0.5, H * 0.09)
+	ci.draw_colored_polygon(tail, Color(finc, 0.88))
+	if not sil:
+		_rays(ci, tail[0].lerp(tail[tail.size() - 1], 0.5), tail, finc.darkened(0.35))
 	# aletas dorsal, anal y pectoral
 	var dors := PackedVector2Array([upper[6], upper[9] + Vector2(0, -H * 0.38), upper[13] + Vector2(0, -H * 0.32), upper[17] + Vector2(0, -H * 0.12), upper[17]])
-	ci.draw_colored_polygon(dors, finc.darkened(0.08))
+	ci.draw_colored_polygon(dors, Color(finc.darkened(0.08), 0.9))
+	if not sil:
+		for i in range(6, 18, 2):
+			ci.draw_line(upper[i], upper[i].lerp(dors[2], 0.0) + Vector2(0, -H * 0.3 * sin(PI * (i - 6) / 12.0)), Color(finc.darkened(0.4), 0.6), 1.0, true)
 	var anal := PackedVector2Array([lower[13], lower[15] + Vector2(0, H * 0.22), lower[18] + Vector2(0, H * 0.1), lower[18]])
-	ci.draw_colored_polygon(anal, finc.darkened(0.08))
-	# cuerpo: lomo y vientre
+	ci.draw_colored_polygon(anal, Color(finc.darkened(0.08), 0.9))
+	# cuerpo con volumen: lomo oscuro, flanco, vientre claro
 	var body := upper.duplicate()
 	for i in range(lower.size() - 1, -1, -1):
 		body.append(lower[i])
-	ci.draw_colored_polygon(body, top)
-	if not sil:
-		var bel := PackedVector2Array()
-		for i in lower.size():
-			bel.append(lower[i].lerp(upper[i], 0.42))
-		for i in range(lower.size() - 1, -1, -1):
-			bel.append(lower[i])
-		ci.draw_colored_polygon(bel, belly)
+	if sil:
+		ci.draw_colored_polygon(body, top)
+	else:
+		var cols := PackedColorArray()
+		var y_top := cy - H * 0.5
+		for p in body:
+			var f: float = clamp((p.y - y_top) / H, 0.0, 1.0)
+			var c: Color
+			if f < 0.35:
+				c = top.darkened(0.3).lerp(top, f / 0.35)
+			elif f < 0.6:
+				c = top.lerp(belly, (f - 0.35) / 0.25)
+			else:
+				c = belly.lerp(belly.lightened(0.12), (f - 0.6) / 0.4)
+			# la cola y la cabeza un poco más oscuras para dar redondez
+			var u: float = clamp((p.x - x0) / L, 0.0, 1.0)
+			c = c.darkened(0.12 * pow(abs(u - 0.45) * 2.0, 2.0))
+			cols.append(c)
+		ci.draw_polygon(body, cols)
 		_pattern(ci, st, upper, lower, cy, H, L, x0, mut)
-		var pec := PackedVector2Array([Vector2(x0 + L * 0.26, cy + H * 0.05), Vector2(x0 + L * 0.42, cy + H * 0.02), Vector2(x0 + L * 0.36, cy + H * 0.2)])
-		ci.draw_colored_polygon(pec, finc.lightened(0.1))
-		# opérculo
-		ci.draw_arc(Vector2(x0 + L * 0.2, cy), H * 0.3, -1.1, 1.1, 10, top.darkened(0.3), 1.2, true)
+		# escamitas finas
+		if st["pattern"] != "scales":
+			for i in range(5, upper.size() - 5, 2):
+				for f in [0.3, 0.5, 0.7]:
+					ci.draw_arc(upper[i].lerp(lower[i], f), H * 0.05, -PI * 0.5, PI * 0.5, 5, Color(0, 0, 0, 0.08), 1.0, true)
+		# brillo húmedo sobre el lomo
+		var shine := PackedVector2Array()
+		for i in range(4, 16):
+			shine.append(upper[i].lerp(lower[i], 0.2))
+		ci.draw_polyline(shine, Color(1, 1, 1, 0.32), max(1.5, H * 0.05), true)
+		var shine2 := PackedVector2Array()
+		for i in range(5, 11):
+			shine2.append(upper[i].lerp(lower[i], 0.14))
+		ci.draw_polyline(shine2, Color(1, 1, 1, 0.45), max(1.0, H * 0.025), true)
+		# opérculo con sombra y un toque rosado de las agallas
+		var gc := Vector2(x0 + L * 0.2, cy)
+		ci.draw_arc(gc, H * 0.3, -1.1, 1.1, 12, top.darkened(0.45), 1.6, true)
+		ci.draw_arc(gc + Vector2(-1.5, 0), H * 0.27, -0.9, 0.9, 10, Color(0.85, 0.3, 0.3, 0.35), 2.0, true)
+		# aleta pectoral (aletea)
+		var flap: float = sin(anim * 9.0) * H * 0.06 if anim >= 0.0 else 0.0
+		var pec := PackedVector2Array([Vector2(x0 + L * 0.25, cy + H * 0.05), Vector2(x0 + L * 0.42, cy + H * 0.0 + flap), Vector2(x0 + L * 0.38, cy + H * 0.22 + flap)])
+		ci.draw_colored_polygon(pec, Color(finc.lightened(0.15), 0.8))
+		for k in 3:
+			ci.draw_line(pec[0], pec[1].lerp(pec[2], 0.2 + k * 0.3), Color(finc.darkened(0.3), 0.5), 1.0, true)
 	var out := body.duplicate()
 	out.append(body[0])
-	ci.draw_polyline(out, (top if sil else top.darkened(0.5)), 1.4, true)
+	ci.draw_polyline(out, (top if sil else Color(top.darkened(0.6), 0.85)), 1.3, true)
 	if sil:
 		return
 	# boca
@@ -135,11 +184,14 @@ static func _fish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary
 	var er: float = max(2.0, H * 0.09 * float(st.get("eye", 1.0)))
 	var faceless := mut and key == "cherne"
 	if not faceless:
+		ci.draw_circle(ep, er * 1.18, top.darkened(0.45))
 		ci.draw_circle(ep, er, Color("f6f0dc"))
 		var blind := mut and key == "alfonsino"
 		if not blind:
-			ci.draw_circle(ep + Vector2(-er * 0.15, 0), er * 0.55, Color("b3140c") if mut else Color("121212"))
-			ci.draw_circle(ep + Vector2(-er * 0.35, -er * 0.3), er * 0.18, Color(1, 1, 1, 0.8))
+			ci.draw_circle(ep + Vector2(-er * 0.12, 0), er * 0.62, Color("c9a23a") if not mut else Color("7a0a06"))
+			ci.draw_circle(ep + Vector2(-er * 0.15, 0), er * 0.42, Color("b3140c") if mut else Color("0c0c0c"))
+			ci.draw_circle(ep + Vector2(-er * 0.38, -er * 0.32), er * 0.2, Color(1, 1, 1, 0.9))
+			ci.draw_circle(ep + Vector2(er * 0.2, er * 0.25), er * 0.08, Color(1, 1, 1, 0.5))
 	if st.get("brow", false):
 		ci.draw_line(ep + Vector2(-er * 1.4, -er * 1.4), ep + Vector2(er * 2.2, -er * 1.1), _c("d8b440", mut, 0.1), 3.0, true)
 		ci.draw_circle(Vector2(x0 + L * 0.22, cy - H * 0.05), er * 0.7, Color(0.1, 0.1, 0.12, 0.6))
@@ -147,6 +199,24 @@ static func _fish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary
 		ci.draw_circle(Vector2(tail_x - L * 0.04, cy), H * 0.1, Color(0.1, 0.1, 0.1, 0.9))
 	if mut:
 		_mutation(ci, key, upper, lower, cy, H, L, x0, ep, er, top)
+
+
+static func _shadow(ci: CanvasItem, c: Vector2, rx: float, ry: float) -> void:
+	var pts := PackedVector2Array()
+	for i in 20:
+		var a := TAU * i / 20.0
+		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
+	ci.draw_colored_polygon(pts, Color(0.15, 0.1, 0.05, 0.12))
+
+
+static func _rays(ci: CanvasItem, base: Vector2, tail: PackedVector2Array, col: Color) -> void:
+	for i in range(1, tail.size() - 1):
+		ci.draw_line(base, tail[i], Color(col, 0.45), 1.0, true)
+	var mid := tail[0].lerp(tail[tail.size() - 1], 0.5)
+	for k in 5:
+		var f := 0.1 + k * 0.2
+		var a := tail[1].lerp(tail[tail.size() - 2], f)
+		ci.draw_line(mid, a, Color(col, 0.3), 1.0, true)
 
 
 static func _pattern(ci: CanvasItem, st: Dictionary, upper: PackedVector2Array, lower: PackedVector2Array, cy: float, H: float, L: float, x0: float, mut: bool) -> void:
@@ -280,9 +350,17 @@ static func _eel(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary,
 	var body := pts_u.duplicate()
 	for i in range(n, -1, -1):
 		body.append(pts_l[i])
-	ci.draw_colored_polygon(body, top)
 	if sil:
+		ci.draw_colored_polygon(body, top)
 		return
+	var cols := PackedColorArray()
+	for i in body.size():
+		cols.append(top.darkened(0.25) if i <= n else belly)
+	ci.draw_polygon(body, cols)
+	var sh := PackedVector2Array()
+	for i in range(2, n - 4):
+		sh.append(pts_u[i].lerp(pts_l[i], 0.22))
+	ci.draw_polyline(sh, Color(1, 1, 1, 0.25), max(1.0, th * 0.12), true)
 	for i in range(3, n - 2, 2):
 		ci.draw_circle(pts_u[i].lerp(pts_l[i], 0.45), th * 0.18, Color(_c(st["pc"], mut, 0.2), 0.7))
 	var out := body.duplicate()

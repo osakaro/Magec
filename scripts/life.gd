@@ -31,35 +31,107 @@ func _mat(c: Color) -> StandardMaterial3D:
 	return m
 
 
+func _wing_mesh(length: float, root_w: float, tip_w: float, sweep: float, tip_black: bool, side := 1.0) -> ArrayMesh:
+	## Media ala: perfil fino que se estrecha hacia la punta, con borde negro.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var grey := Color("7d8790")
+	var dark := Color("1c1c1e")
+	var segs := 6
+	for i in segs:
+		var u0 := float(i) / segs
+		var u1 := float(i + 1) / segs
+		var w0: float = lerp(root_w, tip_w, u0)
+		var w1: float = lerp(root_w, tip_w, u1)
+		var x0 := u0 * length
+		var x1 := u1 * length
+		var s0 := u0 * sweep
+		var s1 := u1 * sweep
+		var c0 := dark if tip_black and u0 >= 0.5 else grey
+		var c1 := dark if tip_black and u1 >= 0.5 else grey
+		var a := Vector3(x0 * side, 0, -w0 * 0.35 + s0)
+		var b := Vector3(x0 * side, 0, w0 * 0.65 + s0)
+		var c := Vector3(x1 * side, 0, -w1 * 0.35 + s1)
+		var d := Vector3(x1 * side, 0, w1 * 0.65 + s1)
+		var tri := [[a, c0], [c, c1], [b, c0], [b, c0], [c, c1], [d, c1]]
+		if side < 0.0:
+			tri = [[a, c0], [b, c0], [c, c1], [b, c0], [d, c1], [c, c1]]
+		for v in tri:
+			st.set_color(v[1])
+			st.add_vertex(v[0])
+	st.generate_normals()
+	return st.commit()
+
+
 func _build_gulls() -> void:
-	var white := _mat(Color("f4f2ec"))
-	var grey := _mat(Color("8d949a"))
-	var centers := [Vector2(0, -62), Vector2(-40, -48), Vector2(30, -50), Vector2(20, 10), Vector2(-60, 0)]
-	for i in 8:
+	# Gaviota patiamarilla: cuerpo blanco, alas grises largas con punta negra,
+	# pico amarillo. Las alas tienen dos tramos para hacer la forma de "M".
+	var white := _mat(Color("f4f3ef"))
+	var beak := _mat(Color("e8b923"))
+	var wing_m := StandardMaterial3D.new()
+	wing_m.vertex_color_use_as_albedo = true
+	wing_m.roughness = 0.7
+	wing_m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var inner := {1: _wing_mesh(0.78, 0.4, 0.34, 0.05, false, 1.0), -1: _wing_mesh(0.78, 0.4, 0.34, 0.05, false, -1.0)}
+	var outer := {1: _wing_mesh(0.95, 0.34, 0.05, 0.32, true, 1.0), -1: _wing_mesh(0.95, 0.34, 0.05, 0.32, true, -1.0)}
+	var body := CapsuleMesh.new()
+	body.radius = 0.085
+	body.height = 0.6
+	var head := SphereMesh.new()
+	head.radius = 0.085
+	head.height = 0.17
+	var bk := CylinderMesh.new()
+	bk.top_radius = 0.0
+	bk.bottom_radius = 0.025
+	bk.height = 0.12
+	var tail := PrismMesh.new()
+	tail.size = Vector3(0.2, 0.18, 0.02)
+	var centers := [Vector2(0, -62), Vector2(-40, -48), Vector2(30, -50), Vector2(20, 10), Vector2(-60, 0), Vector2(8, -70)]
+	for i in 10:
 		var g := Node3D.new()
+		g.scale = Vector3.ONE * 1.5
 		main.add_child(g)
-		var body := CapsuleMesh.new()
-		body.radius = 0.16
-		body.height = 0.8
 		var b := MeshInstance3D.new()
 		b.mesh = body
 		b.material_override = white
 		b.rotation_degrees.x = 90
 		g.add_child(b)
+		var h := MeshInstance3D.new()
+		h.mesh = head
+		h.material_override = white
+		h.position = Vector3(0, 0.06, -0.33)
+		g.add_child(h)
+		var bm := MeshInstance3D.new()
+		bm.mesh = bk
+		bm.material_override = beak
+		bm.position = Vector3(0, 0.05, -0.44)
+		bm.rotation_degrees.x = -90
+		g.add_child(bm)
+		var tl := MeshInstance3D.new()
+		tl.mesh = tail
+		tl.material_override = white
+		tl.position = Vector3(0, 0, 0.36)
+		tl.rotation_degrees.x = -90
+		g.add_child(tl)
 		var wings: Array = []
 		for side in [-1, 1]:
-			var pivot := Node3D.new()
-			g.add_child(pivot)
-			var w := BoxMesh.new()
-			w.size = Vector3(0.9, 0.03, 0.3)
-			var wm := MeshInstance3D.new()
-			wm.mesh = w
-			wm.material_override = grey
-			wm.position.x = 0.45 * side
-			pivot.add_child(wm)
-			wings.append({"p": pivot, "s": side})
+			var shoulder := Node3D.new()
+			shoulder.position = Vector3(0.08 * side, 0.03, -0.04)
+			g.add_child(shoulder)
+			var wi := MeshInstance3D.new()
+			wi.mesh = inner[side]
+			wi.material_override = wing_m
+			shoulder.add_child(wi)
+			var elbow := Node3D.new()
+			elbow.position = Vector3(0.78 * side, 0, 0.05)
+			shoulder.add_child(elbow)
+			var wo := MeshInstance3D.new()
+			wo.mesh = outer[side]
+			wo.material_override = wing_m
+			elbow.add_child(wo)
+			wings.append({"s": shoulder, "e": elbow, "side": side})
 		var c: Vector2 = centers[i % centers.size()]
-		gulls.append({"n": g, "w": wings, "c": c, "r": randf_range(6, 14), "h": randf_range(8, 14), "a": randf() * TAU, "sp": randf_range(0.35, 0.6) * (1 if i % 2 else -1)})
+		gulls.append({"n": g, "w": wings, "c": c, "r": randf_range(7, 16), "h": randf_range(9, 15), "a": randf() * TAU, "sp": randf_range(0.3, 0.5) * (1 if i % 2 else -1), "ph": randf() * 10.0})
 
 
 func _build_dolphins() -> void:
@@ -120,9 +192,18 @@ func _process(dt: float) -> void:
 		n.position = Vector3(p.x, g["h"] + sin(tt + g["r"]) * 0.6, p.y)
 		var tangent: Vector3 = Vector3(-sin(g["a"]), 0, cos(g["a"])) * signf(g["sp"])
 		n.look_at(n.position + tangent, Vector3.UP)
-		var flap := sin(tt * 9.0 + g["r"]) * 0.6
+		# planean casi todo el rato y de vez en cuando dan unos aletazos
+		var cycle := fmod(tt * 0.35 + g["ph"], 3.0)
+		var flapping := cycle < 0.9
+		var f: float = sin(tt * 11.0 + g["ph"]) if flapping else 0.0
+		var glide_bank: float = sin(tt * 0.5 + g["ph"]) * 0.08
 		for w in g["w"]:
-			w["p"].rotation.z = flap * w["s"]
+			var shoulder: Node3D = w["s"]
+			var elbow: Node3D = w["e"]
+			# hombro arriba y abajo; el codo dobla al revés -> forma de "M"
+			shoulder.rotation.z = (0.18 + f * 0.55) * w["side"] + glide_bank
+			elbow.rotation.z = (-0.32 - f * 0.45) * w["side"]
+		n.rotation.z += -g["sp"] * 0.5
 	if gull_call <= 0.0:
 		gull_call = randf_range(5.0, 12.0)
 		if day > 0.5 and not quiet and Vector2(main.bx, main.bz).distance_to(Vector2(0, -55)) < 70.0:

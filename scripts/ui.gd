@@ -407,6 +407,9 @@ class Portrait extends Control:
 class FishIcon extends Control:
 	var key := ""
 	var mut := false
+	func _process(_d: float) -> void:
+		if is_visible_in_tree():
+			queue_redraw()
 	func _draw() -> void:
 		if key == "":
 			return
@@ -416,7 +419,7 @@ class FishIcon extends Control:
 			draw_line(Vector2(0, 20 + i * 22), Vector2(size.x, 20 + i * 22), Color(0.4, 0.5, 0.6, 0.1), 1.0)
 		if mut:
 			draw_rect(r.grow(-6), Color(BLOOD, 0.5), false, 2.0)
-		FishArt.draw(self, Rect2(size.x * 0.18, 8, size.x * 0.64, size.y - 22), key, mut)
+		FishArt.draw(self, Rect2(size.x * 0.18, 8, size.x * 0.64, size.y - 22), key, mut, false, false, Time.get_ticks_msec() / 1000.0)
 		draw_string(F_HAND, Vector2(14, size.y - 12), "Ejemplar · Güímar", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(INK, 0.55))
 
 
