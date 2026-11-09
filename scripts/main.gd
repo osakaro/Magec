@@ -8,6 +8,7 @@ const OCEAN_SHADER = preload("res://shaders/ocean.gdshader")
 const Cinematic = preload("res://scripts/cinematic.gd")
 const Audio = preload("res://scripts/audio.gd")
 const Quest = preload("res://scripts/quest.gd")
+const Gear = preload("res://scripts/gear.gd")
 
 # Altura de las olas (la cinemática la sube durante el temblor)
 static var amp := 1.0
@@ -66,6 +67,8 @@ var ui
 var cine
 var audio
 var quest
+var gear
+var journal := {}   # especie -> {"n": vista normal, "m": vista mutante, "count": nº}
 
 
 func _ready() -> void:
@@ -91,6 +94,9 @@ func _ready() -> void:
 	quest = Quest.new()
 	quest.main = self
 	add_child(quest)
+	gear = Gear.new()
+	gear.main = self
+	add_child(gear)
 	match start_action:
 		"new":
 			cine = Cinematic.new()
@@ -460,6 +466,8 @@ func act() -> void:
 		return
 	if quest.try_interact():
 		return
+	if gear.try_interact():
+		return
 	if near_port():
 		mode = "port"
 		bv = 0.0
@@ -482,23 +490,28 @@ func start_fishing(s: Dictionary) -> void:
 	var night := is_night()
 	var pool: Array = Data.ZONES[s["zone"]]["fish"]
 	var key: String = pool[randi() % pool.size()]
+	var g: String = Data.FISH[key]["game"]
+	var gi: Dictionary = Data.GAMES[g]
+	var base: float = ((1.25 if night else 0.85) + (0.25 if s["zone"] == "fondo" else 0.0)) * gi["speed"]
 	fishing = {
-		"spot": s, "key": key, "mut": night, "p": 0.0, "dir": 1.0,
-		"speed": (1.25 if night else 0.85) + (0.25 if s["zone"] == "fondo" else 0.0),
-		"w": 0.1 if night else 0.15, "zs": 0.0, "hits": 0, "miss": 0,
+		"spot": s, "key": key, "mut": night, "p": 0.0, "dir": 1.0, "game": g, "need": gi["hits"],
+		"speed": base, "base": base, "w": (0.1 if night else 0.15) * gi["w"], "zs": 0.0, "zdir": 1.0,
+		"timer": 0.6, "vis": 1.0, "hits": 0, "miss": 0,
 	}
 	_new_zone()
 	mode = "fish"
 	bv = 0.0
 	audio.sfx("splash")
 	advance(15)
-	ui.open_fishing("Algo muerde en la oscuridad…" if night else "Pescando en " + Data.ZONES[s["zone"]]["name"].to_lower())
+	var title: String = "Algo muerde en la oscuridad…" if night else gi["title"]
+	ui.open_fishing(title, gi["sub"] + ("  De noche, el agua dorada parpadea." if night else ""))
 
 
 func start_special_fishing() -> void:
 	fishing = {
 		"spot": null, "key": "", "mut": true, "special": true, "p": 0.0, "dir": 1.0,
-		"speed": 1.45, "w": 0.09, "zs": 0.0, "hits": 0, "miss": 0,
+		"speed": 1.2, "base": 1.2, "w": 0.1, "zs": 0.0, "zdir": 1.0, "game": "tiron", "need": 3,
+		"timer": 0.6, "vis": 1.0, "hits": 0, "miss": 0,
 	}
 	_new_zone()
 	mode = "fish"
@@ -506,6 +519,55 @@ func start_special_fishing() -> void:
 	audio.sfx("splash", 0.0, 0.7)
 	advance(15)
 	ui.open_fishing("¡Algo muy pesado tira del sedal!")
+
+
+func _update_minigame(dt: float) -> void:
+	var f := fishing
+	f["timer"] -= dt
+	match f.get("game", "normal"):
+		"zigzag":
+			# cambia de rumbo y de velocidad sin avisar
+			if f["timer"] <= 0.0:
+				f["timer"] = randf_range(0.35, 0.9)
+				if randf() < 0.55:
+					f["dir"] = -f["dir"]
+				f["speed"] = f["base"] * randf_range(0.6, 1.7)
+		"tiron":
+			# el agua dorada se desplaza, y de vez en cuando pega un tirón
+			f["zs"] += f["zdir"] * 0.22 * dt
+			if f["zs"] < 0.04 or f["zs"] > 0.96 - f["w"]:
+				f["zdir"] = -f["zdir"]
+				f["zs"] = clamp(f["zs"], 0.04, 0.96 - f["w"])
+			if f["timer"] <= 0.0:
+				f["timer"] = randf_range(1.0, 2.2)
+				f["speed"] = f["base"] * 2.2
+				audio.sfx("miss", -16.0, 0.6)
+			else:
+				f["speed"] = move_toward(f["speed"], f["base"], dt * 1.5)
+	# los mutantes hacen parpadear el agua dorada
+	if f["mut"]:
+		f["vis"] = 0.25 if sin(t * 5.3) * sin(t * 2.1) > 0.35 else 1.0
+
+
+func register_catch(key: String, mut: bool) -> bool:
+	var e: Dictionary = journal.get(key, {"n": false, "m": false, "count": 0})
+	var is_new: bool = not e["m" if mut else "n"]
+	e["m" if mut else "n"] = true
+	e["count"] = int(e["count"]) + 1
+	journal[key] = e
+	return is_new
+
+
+func add_catch(key: String, mut: bool) -> bool:
+	## Mete un pez directamente en la bodega (nasas y red).
+	var slot = find_slot(Data.FISH[key]["shape"])
+	if slot == null:
+		return false
+	items.append({"key": key, "mut": mut, "shape": slot["shape"], "r": slot["r"], "c": slot["c"]})
+	if register_catch(key, mut):
+		ui.toast_new_species(key, mut)
+	ui.refresh_hold()
+	return true
 
 
 func _new_zone() -> void:
@@ -524,7 +586,7 @@ func strike() -> void:
 	else:
 		fishing["miss"] += 1
 		audio.sfx("miss", -4.0)
-	if fishing["hits"] >= 3:
+	if fishing["hits"] >= fishing.get("need", 3):
 		end_fishing(true)
 	elif fishing["miss"] >= 3:
 		end_fishing(false)
@@ -544,7 +606,8 @@ func end_fishing(ok: bool, cancel := false) -> void:
 		if pending["mut"]:
 			panic = min(100.0, panic + 10.0)
 		audio.sfx("mutant" if pending["mut"] else "catch", -2.0)
-		ui.open_catch(pending["key"], pending["mut"], find_slot(Data.FISH[pending["key"]]["shape"]) != null)
+		var is_new := register_catch(pending["key"], pending["mut"])
+		ui.open_catch(pending["key"], pending["mut"], find_slot(Data.FISH[pending["key"]]["shape"]) != null, is_new)
 	else:
 		mode = "sail"
 		ui.toast("Recoges el sedal." if cancel else "Se ha escapado.")
@@ -701,6 +764,7 @@ func save_game() -> void:
 		"items": its, "spots": left,
 		"bx": bx, "bz": bz, "ba": ba,
 		"quest_state": quest.state, "stones": quest.stones,
+		"journal": journal, "gear": gear.to_dict(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -742,6 +806,8 @@ func load_game() -> bool:
 		spots[i]["left"] = int(left[i])
 	quest.state = str(d.get("quest_state", "talk1"))
 	quest.stones = int(d.get("stones", 0))
+	journal = d.get("journal", {})
+	gear.from_dict(d.get("gear", {}))
 	camera.position = Vector3(bx + sin(ba) * 20.0, 13.0, bz + cos(ba) * 20.0)
 	return true
 
@@ -792,6 +858,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_lamp()
 		KEY_I, KEY_TAB:
 			ui.toggle_hold()
+		KEY_C:
+			ui.toggle_journal()
+		KEY_N:
+			gear.drop_nasa()
+		KEY_R:
+			gear.toggle_net()
 
 
 # ---------- Bucle ----------
@@ -803,6 +875,7 @@ func _process(delta: float) -> void:
 	_update_panic(dt)
 	_apply_light()
 	if mode == "fish":
+		_update_minigame(dt)
 		fishing["p"] += fishing["dir"] * fishing["speed"] * dt
 		if fishing["p"] > 1.0:
 			fishing["p"] = 1.0
@@ -819,7 +892,7 @@ func _update_boat(dt: float) -> void:
 		var dn := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
 		var lf := Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)
 		var rt := Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)
-		var vmax := 9.0 + speed_lvl * 3.5
+		var vmax: float = (9.0 + speed_lvl * 3.5) * gear.speed_mult()
 		if up:
 			bv += 10.0 * dt
 		if dn:

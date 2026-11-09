@@ -18,10 +18,15 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 | Espacio | Golpe en el minijuego de pesca |
 | F | Farol de Magec |
 | I | Bodega |
+| C | Cuaderno de especies |
+| N | Echar nasa |
+| R | Echar / recoger la red |
 | Esc | Pausa / recoger sedal |
 
 ## Qué hay en esta versión
 
+- 15 especies de Tenerife con su mutante. Cuatro minijuegos: normal, rápido (4 aciertos), zigzag y tirón (el agua dorada se mueve). De noche el agua dorada parpadea.
+- Cuaderno de especies (C). Nasas (N) que se llenan con las horas y red de arrastre (R) que pesca mientras navegas.
 - Menú principal (Continuar / Nueva partida / Opciones / Salir), pausa con Esc y opciones de volumen y pantalla completa.
 - Guardado automático al dormir, al zarpar del puerto y al avanzar la misión; también se puede guardar desde la pausa.
 - Cinemática de inicio (se salta con Esc o Espacio): Aridane y San Borondón, treinta años después, el temblor y el farol de Chaxiraxi.

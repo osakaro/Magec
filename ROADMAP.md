@@ -17,9 +17,9 @@ Lista de pasos a seguir, en orden de prioridad. Se marca con [x] lo que ya está
 - [x] Menú de pausa (Esc) y opciones (volumen, pantalla completa)
 
 ## 2 · Hacer la pesca más divertida
-- [ ] Minijuego distinto según el pez (tirones del cherne, zigzag del calamar…)
-- [ ] Cuaderno de especies (peces normales y mutantes descubiertos)
-- [ ] Redes y nasas; más peces de Tenerife
+- [x] Minijuego distinto según el pez (tirones del cherne, zigzag del calamar…)
+- [x] Cuaderno de especies (peces normales y mutantes descubiertos)
+- [x] Redes y nasas; más peces de Tenerife
 
 ## 3 · Más vida y tensión en el mar
 - [ ] Rocas y bajíos que dañan el casco; daños y reparación en puerto

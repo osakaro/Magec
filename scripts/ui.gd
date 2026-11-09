@@ -42,6 +42,11 @@ var vignette: ColorRect
 
 var fish_panel: WoodPanel
 var fish_title: Label
+var fish_sub: Label
+var catch_new: Label
+var journal_panel: WoodPanel
+var journal_book: JournalBook
+var journal_count: Label
 var fish_bar: FishBar
 var catch_panel: WoodPanel
 var catch_icon: FishIcon
@@ -396,8 +401,9 @@ class FishBar extends Control:
 		var f: Dictionary = game.fishing
 		var tt: float = game.t
 		var zr := Rect2(bar.position.x + f["zs"] * bar.size.x, bar.position.y, f["w"] * bar.size.x, bar.size.y)
-		draw_rect(zr, Color(SUN, 0.28 + 0.1 * sin(tt * 6.0)))
-		draw_rect(zr, Color(SUN, 0.9), false, 2.0)
+		var vis: float = f.get("vis", 1.0)
+		draw_rect(zr, Color(SUN, (0.28 + 0.1 * sin(tt * 6.0)) * vis))
+		draw_rect(zr, Color(SUN, 0.9 * vis), false, 2.0)
 		for i in 4:
 			var bx: float = zr.position.x + zr.size.x * fmod(i * 0.29 + tt * 0.3, 1.0)
 			draw_circle(Vector2(bx, zr.end.y - fmod(tt * 20.0 + i * 11.0, bar.size.y)), 2.0, Color(1, 1, 1, 0.5))
@@ -409,7 +415,7 @@ class FishBar extends Control:
 		draw_circle(Vector2(x, y - 1), 9, BLOOD)
 		draw_rect(Rect2(x - 9, y + 1, 18, 3), FOAM)
 		var base := Vector2(0, 80)
-		for i in 3:
+		for i in int(f.get("need", 3)):
 			var r := Rect2(base.x + i * 62, base.y, 54, 26)
 			draw_rect(r, Color(0, 0, 0, 0.3))
 			if i < f["hits"]:
@@ -540,6 +546,7 @@ func _ready() -> void:
 	_build_hold(root)
 	_build_port(root)
 	_build_dialogue(root)
+	_build_journal(root)
 	_build_intro(root)
 	_build_menu(root)
 	_build_pause(root)
@@ -694,7 +701,7 @@ func _build_hud(root: Control) -> void:
 	keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(keys)
 	hud_nodes.append(keys)
-	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["I", "Bodega"]]:
+	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["I", "Bodega"], ["C", "Cuaderno"]]:
 		keys.add_child(KeyCap.new(k[0]))
 		keys.add_child(_shadowed(_label(k[1] + "   ", 15, PAPER)))
 
@@ -707,7 +714,10 @@ func _build_fishing(root: Control) -> void:
 	vb.add_child(Plaque.new("SEDAL EN EL AGUA", 18))
 	fish_title = _label("Pescando…", 28, FOAM, F_TITLE)
 	vb.add_child(fish_title)
-	vb.add_child(_label("Pulsa Espacio o haz clic cuando el corcho esté sobre el agua dorada.", 16, SALT))
+	fish_sub = _label("", 16, SALT)
+	fish_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(fish_sub)
+	vb.add_child(_label("Espacio o clic cuando el corcho esté sobre el agua dorada.", 14, Color(SALT, 0.7)))
 	fish_bar = FishBar.new()
 	fish_bar.game = main
 	vb.add_child(fish_bar)
@@ -724,7 +734,13 @@ func _build_catch(root: Control) -> void:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	catch_panel.add_child(vb)
-	vb.add_child(Plaque.new("CAPTURA", 18))
+	var head := HBoxContainer.new()
+	vb.add_child(head)
+	var pl := Plaque.new("CAPTURA", 18)
+	pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(pl)
+	catch_new = _label("¡Nueva en el cuaderno!", 26, BLOOD.lightened(0.25), F_HAND)
+	head.add_child(catch_new)
 	catch_icon = FishIcon.new()
 	catch_icon.custom_minimum_size = Vector2(0, 150)
 	vb.add_child(catch_icon)
@@ -780,6 +796,80 @@ func _build_hold(root: Control) -> void:
 	hold_info = _label("", 15, PAPER)
 	row.add_child(hold_info)
 	hold_grid.refresh()
+
+
+## Cuaderno de especies: páginas de papel con una ficha por pez.
+class JournalBook extends Control:
+	const COLS := 5
+	const CW := 168.0
+	const CH := 150.0
+	var game
+	func _init() -> void:
+		var rows := int(ceil(float(Data.JOURNAL.size()) / COLS))
+		custom_minimum_size = Vector2(COLS * CW + 40, rows * CH + 30)
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		draw_rect(r, PAPER)
+		for i in Data.JOURNAL.size():
+			var key: String = Data.JOURNAL[i][0]
+			var where: String = Data.JOURNAL[i][1]
+			var e: Dictionary = game.journal.get(key, {})
+			var seen_n: bool = e.get("n", false)
+			var seen_m: bool = e.get("m", false)
+			var cell := Rect2(20 + (i % COLS) * CW, 15 + (i / COLS) * CH, CW - 10, CH - 10)
+			draw_rect(cell, Color(INK, 0.05))
+			draw_rect(cell, Color(INK, 0.25), false, 1.0)
+			var fr := Rect2(cell.position + Vector2(18, 10), Vector2(cell.size.x - 36, 52))
+			var f: Dictionary = Data.FISH[key]
+			if seen_n or seen_m:
+				load("res://scripts/ui.gd").draw_fish(self, fr, f["c"], seen_m and not seen_n, false)
+				draw_string(F_TITLE, cell.position + Vector2(10, 84), f["n"], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 18, INK)
+				draw_string(F_UI, cell.position + Vector2(10, 102), "%s · %d €" % [where, f["v"]], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.6))
+			else:
+				load("res://scripts/ui.gd").draw_fish(self, fr, Color(0.18, 0.15, 0.13, 0.55), false, false)
+				draw_string(F_TITLE, cell.position + Vector2(10, 84), "???", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(INK, 0.45))
+				draw_string(F_UI, cell.position + Vector2(10, 102), where, HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.45))
+			var mt: String = f["m"] if seen_m else "Mutante: ???"
+			draw_string(F_HAND, cell.position + Vector2(10, 126), mt, HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 16, 17, BLOOD if seen_m else Color(INK, 0.35))
+
+
+func _build_journal(root: Control) -> void:
+	journal_panel = _center_panel(root, 0)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	journal_panel.add_child(vb)
+	var head := HBoxContainer.new()
+	vb.add_child(head)
+	var pl := Plaque.new("CUADERNO DE ESPECIES", 20)
+	pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(pl)
+	journal_count = _label("", 16, PAPER)
+	head.add_child(journal_count)
+	journal_book = JournalBook.new()
+	journal_book.game = main
+	vb.add_child(journal_book)
+	var foot := HBoxContainer.new()
+	foot.alignment = BoxContainer.ALIGNMENT_END
+	foot.add_child(KeyCap.new("C"))
+	foot.add_child(_label("  cerrar", 14, SALT))
+	vb.add_child(foot)
+
+
+func toggle_journal() -> void:
+	journal_panel.visible = not journal_panel.visible
+	hold_panel.visible = false
+	if journal_panel.visible:
+		var n := 0
+		var m := 0
+		for e in main.journal.values():
+			n += 1 if e.get("n", false) else 0
+			m += 1 if e.get("m", false) else 0
+		journal_count.text = "Especies: %d/%d   ·   Mutantes: %d/%d" % [n, Data.JOURNAL.size(), m, Data.JOURNAL.size()]
+		journal_book.queue_redraw()
+
+
+func toast_new_species(key: String, mut: bool) -> void:
+	toast("¡Nueva en el cuaderno! " + Data.fish_name(key, mut))
 
 
 func _build_port(root: Control) -> void:
@@ -950,6 +1040,8 @@ func update_hud() -> void:
 
 	var hint := ""
 	var qh: String = main.quest.hint() if main.mode == "sail" else ""
+	if qh == "" and main.mode == "sail":
+		qh = main.gear.hint()
 	if qh != "":
 		hint = qh
 	elif main.mode == "sail":
@@ -967,9 +1059,11 @@ func update_hud() -> void:
 		fish_bar.queue_redraw()
 
 
-func open_fishing(title: String) -> void:
+func open_fishing(title: String, sub := "") -> void:
 	hold_panel.visible = false
+	journal_panel.visible = false
 	fish_title.text = title
+	fish_sub.text = sub
 	fish_panel.visible = true
 
 
@@ -977,7 +1071,8 @@ func close_fishing() -> void:
 	fish_panel.visible = false
 
 
-func open_catch(key: String, mut: bool, fits: bool) -> void:
+func open_catch(key: String, mut: bool, fits: bool, is_new := false) -> void:
+	catch_new.visible = is_new
 	catch_icon.key = key
 	catch_icon.mut = mut
 	catch_icon.queue_redraw()
@@ -1000,7 +1095,11 @@ func refresh_hold() -> void:
 		return
 	hold_grid.refresh()
 	var lamp := "Farol de Magec" + (" (bendecido)" if main.lamp_mult < 1.0 else "")
-	hold_stats.text = "Motor: nivel %d   ·   %s   ·   Bodega: %d × %d" % [main.speed_lvl + 1, lamp, main.cols, main.rows]
+	var g = main.gear
+	var gear_txt := "   ·   Nasas: %d/%d [N]" % [g.nasas_free(), g.nasas_owned] if g.nasas_owned > 0 else ""
+	if g.net_owned:
+		gear_txt += "   ·   Red [R]: %s" % ("echada" if g.net_out else "a bordo")
+	hold_stats.text = "Motor: nivel %d   ·   %s%s" % [main.speed_lvl + 1, lamp, gear_txt]
 	_on_hold_select(hold_grid.sel)
 
 
@@ -1069,6 +1168,17 @@ func _render_port() -> void:
 		_port_line("Motor nuevo", "Navegas más rápido", "%d €" % main.engine_price(), main.money < main.engine_price(), main.buy_engine)
 	if main.rows < 5:
 		_port_line("Ampliar bodega", "Una fila más de espacio", "%d €" % main.hold_price(), main.money < main.hold_price(), main.buy_hold)
+	var g = main.gear
+	if g.nasas_owned < g.MAX_NASAS:
+		_port_line("Nasa para pulpos y morenas", "Échala con N y vuelve a por ella horas después. Tienes %d." % g.nasas_owned, "%d €" % g.NASA_PRICE, main.money < g.NASA_PRICE, func():
+			main.money -= g.NASA_PRICE
+			g.nasas_owned += 1
+			toast("Nasa comprada. Pulsa N en el mar para echarla."))
+	if not g.net_owned:
+		_port_line("Red de arrastre", "Pesca peces pequeños mientras navegas (R), pero frena el barco.", "%d €" % g.NET_PRICE, main.money < g.NET_PRICE, func():
+			main.money -= g.NET_PRICE
+			g.net_owned = true
+			toast("Red comprada. Pulsa R en el mar para echarla o recogerla."))
 	if main.is_night():
 		_port_line("Dormir hasta el amanecer", "Pasa la noche en casa", "Dormir", false, main.sleep)
 	refresh_hold()
