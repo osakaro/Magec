@@ -35,6 +35,10 @@ Lista de pasos a seguir, en orden de prioridad. Se marca con [x] lo que ya está
 - [ ] Resto de islas (La Gomera, Lanzarote, La Graciosa, Fuerteventura, La Palma, El Hierro)
 - [ ] San Borondón, Aridane y los tres finales (el final malo depende de los mutantes vendidos a Baltasar)
 
-## 5 · Aspecto (al final)
-- [ ] Modelos 3D de verdad: barco, pueblo, personajes, peces
-- [ ] Costa más bonita: playa de arena negra, rocas, rompientes con espuma
+## 5 · Aspecto
+- [x] Agua con espuma en la costa y rocas, transparencia, reflejos y oleaje fino
+- [x] Cielo con sol, nubes, luna y estrellas; atardeceres y noches con luna
+- [x] Terreno volcánico (arena negra, basalto, malpaís, tabaibas, nieve en el Teide)
+- [x] Palmeras canarias, cardones, casas canarias con balcones, iglesia, muelle y escollera
+- [x] Barco nuevo con casco curvo, caseta y neumáticos
+- [ ] Personajes y peces en 3D más detallados

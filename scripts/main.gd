@@ -5,6 +5,9 @@ extends Node3D
 const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
 const OCEAN_SHADER = preload("res://shaders/ocean.gdshader")
+const SKY_SHADER = preload("res://shaders/sky.gdshader")
+const TERRAIN_SHADER = preload("res://shaders/terrain.gdshader")
+const Props = preload("res://scripts/props.gd")
 const Cinematic = preload("res://scripts/cinematic.gd")
 const Audio = preload("res://scripts/audio.gd")
 const Quest = preload("res://scripts/quest.gd")
@@ -56,7 +59,8 @@ var pending: Dictionary = {}
 
 # ---------- Nodos ----------
 var env: Environment
-var sky_mat: ProceduralSkyMaterial
+var sky_mat: ShaderMaterial
+var terrain_mat: ShaderMaterial
 var sun: DirectionalLight3D
 var moon: DirectionalLight3D
 var ocean: MeshInstance3D
@@ -195,27 +199,60 @@ func _mesh(mesh: Mesh, mat: Material, pos: Vector3, parent: Node = self) -> Mesh
 	return mi
 
 
+func _noise_tex(freq: float, size: int, normal_map: bool, seed_v: int, octaves := 4) -> NoiseTexture2D:
+	var n := FastNoiseLite.new()
+	n.seed = seed_v
+	n.frequency = freq
+	n.fractal_octaves = octaves
+	var tx := NoiseTexture2D.new()
+	tx.width = size
+	tx.height = size
+	tx.seamless = true
+	tx.as_normal_map = normal_map
+	if normal_map:
+		tx.bump_strength = 4.0
+	tx.generate_mipmaps = true
+	tx.noise = n
+	return tx
+
+
 func _build_environment() -> void:
 	env = Environment.new()
 	env.background_mode = Environment.BG_SKY
-	sky_mat = ProceduralSkyMaterial.new()
+	sky_mat = ShaderMaterial.new()
+	sky_mat.shader = SKY_SHADER
+	sky_mat.set_shader_parameter("cloud_noise", _noise_tex(0.008, 512, false, 3, 5))
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
+	sky.radiance_size = Sky.RADIANCE_SIZE_128
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.0
+	env.tonemap_white = 6.0
+	env.ssao_enabled = true
+	env.ssao_radius = 1.4
+	env.ssao_intensity = 1.6
 	env.fog_enabled = true
-	env.fog_sky_affect = 0.6
+	env.fog_sky_affect = 0.35
+	env.fog_aerial_perspective = 0.55
 	env.glow_enabled = true
-	env.glow_intensity = 0.9
-	env.glow_bloom = 0.1
+	env.glow_intensity = 0.7
+	env.glow_bloom = 0.06
+	env.glow_hdr_threshold = 1.1
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.08
+	env.adjustment_saturation = 1.08
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 
 	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 200
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_max_distance = 220
+	sun.shadow_blur = 1.5
 	add_child(sun)
 	moon = DirectionalLight3D.new()
 	moon.light_color = Color(0.55, 0.65, 0.9)
@@ -230,82 +267,148 @@ func _build_ocean() -> void:
 	pm.subdivide_depth = OCEAN_SUBDIV
 	ocean_mat = ShaderMaterial.new()
 	ocean_mat.shader = OCEAN_SHADER
+	ocean_mat.set_shader_parameter("normal_a", _noise_tex(0.02, 512, true, 7))
+	ocean_mat.set_shader_parameter("normal_b", _noise_tex(0.035, 512, true, 13))
+	ocean_mat.set_shader_parameter("foam_noise", _noise_tex(0.03, 256, false, 21, 3))
 	ocean = _mesh(pm, ocean_mat, Vector3.ZERO)
 	ocean.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func _build_land() -> void:
-	# Costa volcánica: rejilla de triángulos con sombreado plano (estilo low-poly).
+	# Costa volcánica con sombreado suave; el color lo pone el shader del terreno.
+	terrain_mat = ShaderMaterial.new()
+	terrain_mat.shader = TERRAIN_SHADER
+	terrain_mat.set_shader_parameter("detail", _noise_tex(0.02, 512, false, 31, 5))
+	if region != "tenerife":
+		terrain_mat.set_shader_parameter("snow_line", 9999.0)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var x0 := -350.0
 	var z0 := -330.0
-	var nx := 140
-	var nzc := 58
+	var nx := 280
+	var nzc := 116
 	var dx := 700.0 / nx
 	var dz := 290.0 / nzc
-	for i in nx:
-		for j in nzc:
-			var a := Vector2(x0 + i * dx, z0 + j * dz)
-			var quad := [a, a + Vector2(dx, 0), a + Vector2(dx, dz), a + Vector2(0, dz)]
-			var pts: Array = []
-			for q in quad:
-				var h: float = min(land_h(q.x, q.y), 30.0 + nz(q.x * 2.0, q.y) * 4.0)
-				pts.append(Vector3(q.x, h, q.y))
-			var cy: float = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4.0
-			var col := Color("2a2522")
-			if cy >= 0.6 and cy < 8.0:
-				col = Color("3b3330").lerp(Color("5a6b3a"), clamp(nz(a.x * 1.7, a.y * 1.3), 0.0, 1.0) * 0.6)
-			elif cy >= 8.0:
-				col = Color("4a3d36")
-			for idx in [0, 1, 2, 0, 2, 3]:
-				st.set_color(col)
-				st.add_vertex(pts[idx])
+	for j in nzc + 1:
+		for i in nx + 1:
+			var x := x0 + i * dx
+			var z := z0 + j * dz
+			var h: float = min(land_h(x, z), 30.0 + nz(x * 2.0, z) * 4.0)
+			st.add_vertex(Vector3(x, h, z))
+	for j in nzc:
+		for i in nx:
+			var a := j * (nx + 1) + i
+			var b := a + nx + 1
+			st.add_index(a)
+			st.add_index(a + 1)
+			st.add_index(b)
+			st.add_index(a + 1)
+			st.add_index(b + 1)
+			st.add_index(b)
 	st.generate_normals()
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.roughness = 1.0
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
-	mi.material_override = m
+	mi.material_override = terrain_mat
 	add_child(mi)
+	_build_vegetation()
 
 	if region == "gran_canaria":
 		_build_gc_mountains()
 		return
-	# El Teide al fondo
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 150
-	cone.height = 170
-	cone.radial_segments = 9
-	cone.rings = 4
-	_mesh(cone, _mat(Color("5b4a40"), 1.0), Vector3(-90, 60, -330))
-	var snow := CylinderMesh.new()
-	snow.top_radius = 0.0
-	snow.bottom_radius = 42
-	snow.height = 48
-	snow.radial_segments = 9
-	_mesh(snow, _mat(Color("e9eef0"), 0.8), Vector3(-90, 121, -330))
+	# El Teide al fondo, con nieve en la cumbre
+	_mountain(Vector3(-90, -10, -330), 175.0, 190.0, 1)
+	_mountain(Vector3(60, -10, -360), 150.0, 120.0, 2)
+	_mountain(Vector3(-260, -10, -300), 140.0, 100.0, 3)
+
+
+func _mountain(center: Vector3, radius: float, height: float, seed_v: int) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings := 18
+	var segs := 36
+	st.add_vertex(center + Vector3(0, height, 0))
+	for r in range(1, rings + 1):
+		var k := float(r) / rings
+		for sgm in segs:
+			var a := TAU * sgm / segs
+			var rr := radius * k * (0.85 + 0.15 * sin(a * 3.0 + seed_v))
+			var x := center.x + cos(a) * rr
+			var z := center.z + sin(a) * rr
+			var y := center.y + height * pow(1.0 - k, 1.35) + nz(x * 0.8 + seed_v * 20.0, z * 0.8) * 7.0 * k
+			st.add_vertex(Vector3(x, y, z))
+	for sgm in segs:
+		st.add_index(0)
+		st.add_index(1 + (sgm + 1) % segs)
+		st.add_index(1 + sgm)
+	for r in range(0, rings - 1):
+		for sgm in segs:
+			var a := 1 + r * segs + sgm
+			var b := 1 + r * segs + (sgm + 1) % segs
+			var c := a + segs
+			var d := b + segs
+			st.add_index(a)
+			st.add_index(b)
+			st.add_index(c)
+			st.add_index(b)
+			st.add_index(d)
+			st.add_index(c)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = terrain_mat
+	add_child(mi)
+
+
+func _build_vegetation() -> void:
+	# Palmeras canarias, cardones y tabaibas repartidos por la costa.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99 + int(land_seed)
+	var palms: Array = []
+	var cardones: Array = []
+	var shrubs: Array = []
+	var tries := 0
+	while tries < 9000:
+		tries += 1
+		var x := rng.randf_range(-320, 320)
+		var z := rng.randf_range(-300, -66)
+		var h := land_h(x, z)
+		if h < 0.8 or h > 30.0:
+			continue
+		var slope: float = abs(land_h(x + 2.0, z) - h) + abs(land_h(x, z + 2.0) - h)
+		var in_town: bool = abs(x) < 34.0 and z > -112.0
+		var near_pyr: bool = Vector2(x, z).distance_to(Vector2(-82, -100)) < 26.0
+		if in_town or near_pyr:
+			continue
+		var basis := Basis(Vector3.UP, rng.randf() * TAU)
+		if h < 7.0 and slope < 1.6 and palms.size() < 70 and rng.randf() < 0.18:
+			palms.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.8, 1.25)), Vector3(x, h - 0.2, z)))
+		elif slope > 0.8 and cardones.size() < 160 and rng.randf() < 0.3:
+			cardones.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.7, 1.5)), Vector3(x, h - 0.1, z)))
+		elif shrubs.size() < 700:
+			shrubs.append(Transform3D(basis.scaled(Vector3(1, rng.randf_range(0.7, 1.1), 1) * rng.randf_range(0.6, 1.4)), Vector3(x, h - 0.1, z)))
+	# palmeras del paseo del pueblo
+	for i in 9:
+		var x := -32.0 + i * 8.0
+		var z := -77.5
+		palms.append(Transform3D(Basis(Vector3.UP, i * 1.3).scaled(Vector3.ONE * (0.95 + 0.1 * (i % 3))), Vector3(x, max(land_h(x, z), 0.6) - 0.2, z)))
+	Props.scatter(self, Props.palm_mesh(), Props.vc_mat(0.85), palms)
+	var cm := Props.mat(Color("5d7a4a"), 0.8)
+	Props.scatter(self, Props.cardon_mesh(), cm, cardones)
+	var sm := Props.mat(Color("6f7f3a"), 0.95)
+	Props.scatter(self, Props.shrub_mesh(), sm, shrubs)
 
 
 func _build_gc_mountains() -> void:
 	# Cumbres de Gran Canaria con el Roque Nublo
-	var rock := _mat(Color("6a5546"), 1.0)
-	for m in [[-60.0, -300.0, 120.0, 110.0], [60.0, -320.0, 140.0, 95.0], [0.0, -360.0, 160.0, 120.0]]:
-		var c := CylinderMesh.new()
-		c.top_radius = m[2] * 0.15
-		c.bottom_radius = m[2]
-		c.height = m[3]
-		c.radial_segments = 8
-		_mesh(c, rock, Vector3(m[0], m[3] / 2.0 - 10.0, m[1]))
+	_mountain(Vector3(-60, -10, -310), 150.0, 120.0, 4)
+	_mountain(Vector3(70, -10, -330), 160.0, 105.0, 5)
+	_mountain(Vector3(0, -10, -370), 180.0, 135.0, 6)
 	var roque := CylinderMesh.new()
-	roque.top_radius = 5
-	roque.bottom_radius = 8
-	roque.height = 40
-	roque.radial_segments = 6
-	_mesh(roque, _mat(Color("4e3f36"), 1.0), Vector3(0, 130, -360))
+	roque.top_radius = 4
+	roque.bottom_radius = 7
+	roque.height = 34
+	roque.radial_segments = 7
+	_mesh(roque, _mat(Color("5a4a3e"), 1.0), Vector3(0, 138, -370))
 
 
 func _build_gc_port() -> void:
@@ -332,15 +435,13 @@ func _build_gc_port() -> void:
 		_mesh(bm, _mat(cont_cols[i % 4], 0.8), Vector3(8.0 + (i % 4) * 7.0, 2.5 + (i / 4) * 2.6, -84))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
-	for i in 22:
-		var w := 5.0 + rng.randf() * 5.0
-		var h := 6.0 + rng.randf() * 14.0
-		var x := -60.0 + i * 6.0 + rng.randf() * 2.0
-		var z := -92.0 - rng.randf() * 20.0
-		var bm := BoxMesh.new()
-		bm.size = Vector3(w, h, w)
-		var col := Color("efe9dc").lerp(Color("d8c7a8"), rng.randf())
-		_mesh(bm, _mat(col, 0.8), Vector3(x, max(land_h(x, z), 0.5) + h / 2.0 - 1.5, z))
+	for row in 2:
+		for i in 16:
+			var w := 6.0 + rng.randf() * 4.0
+			var h := 6.0 + rng.randf() * 10.0 + row * 5.0
+			var x := -70.0 + i * 8.5 + rng.randf() * 1.5
+			var z := -96.0 - row * 12.0 - rng.randf() * 3.0
+			Props.house(self, Vector3(x, max(land_h(x, z), 0.5), z), w, 7.0, h, rng)
 	port_light = OmniLight3D.new()
 	port_light.light_color = Color("ffc27a")
 	port_light.omni_range = 50
@@ -352,28 +453,68 @@ func _build_port() -> void:
 	if region == "gran_canaria":
 		_build_gc_port()
 		return
-	var wood := _mat(Color("6b4a2f"), 1.0)
+	# Muelle: base de piedra, tablones de madera y bolardos
+	var stone := _mat(Color("6d665e"), 1.0)
 	var dock := BoxMesh.new()
-	dock.size = Vector3(4, 0.6, 24)
-	_mesh(dock, wood, Vector3(0, 0.9, -66))
-	var post := CylinderMesh.new()
-	post.top_radius = 0.25
-	post.bottom_radius = 0.25
-	post.height = 4
-	for i in 5:
-		_mesh(post, wood, Vector3(1.9 if i % 2 else -1.9, -0.8, -56 - i * 4))
-	# Casas blancas de la caleta
-	var house_cols := [Color("f3efe6"), Color("f0e6c8"), Color("e8eef0"), Color("f3d9b1"), Color.WHITE]
+	dock.size = Vector3(4.4, 2.4, 24)
+	_mesh(dock, stone, Vector3(0, -0.2, -66))
+	var plank_a := _mat(Color("7a5636"), 0.9)
+	var plank_b := _mat(Color("6b4a2f"), 0.9)
+	for i in 24:
+		var pb := BoxMesh.new()
+		pb.size = Vector3(4.2, 0.12, 0.95)
+		_mesh(pb, plank_a if i % 2 == 0 else plank_b, Vector3(0, 1.06, -54.5 - i))
+	var iron := _mat(Color("2b2b2e"), 0.5)
+	for i in 4:
+		for sx in [-1.9, 1.9]:
+			var bol := Props.cyl(0.18, 0.24, 0.6, 10)
+			_mesh(bol, iron, Vector3(sx, 1.4, -56.0 - i * 6.0))
+	# Escollera de roca volcánica protegiendo la caleta
+	var basalt := _mat(Color("2a2522"), 0.95)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
-	for i in 14:
-		var w := 3.0 + rng.randf() * 3.0
-		var h := 2.5 + rng.randf() * 2.0
-		var x := -26.0 + i * 4.0 + rng.randf() * 2.0
-		var z := -84.0 - rng.randf() * 14.0
-		var bm := BoxMesh.new()
-		bm.size = Vector3(w, h + 3.0, w)
-		_mesh(bm, _mat(house_cols[i % 5], 0.8), Vector3(x, max(land_h(x, z), 0.5) + h / 2.0 - 1.8, z))
+	for i in 26:
+		var x := -48.0 + i * 1.7 + rng.randf_range(-0.5, 0.5)
+		var z := -71.0 + rng.randf_range(-1.0, 1.0)
+		if abs(x) < 6.0:
+			continue
+		var rk := MeshInstance3D.new()
+		rk.mesh = Props.rock_mesh(i)
+		rk.material_override = basalt
+		var sc := rng.randf_range(0.9, 1.7)
+		rk.scale = Vector3(sc, sc * 0.7, sc)
+		rk.position = Vector3(x, -0.3, z)
+		rk.rotation.y = rng.randf() * TAU
+		add_child(rk)
+	# Pueblo: casas canarias y la iglesia
+	for i in 16:
+		var w := 4.5 + rng.randf() * 2.5
+		var h := 3.6 + rng.randf() * 4.0
+		var x := -34.0 + i * 4.6 + rng.randf() * 0.8
+		var z := -84.0 - rng.randf() * 3.0
+		Props.house(self, Vector3(x, max(land_h(x, z), 0.5), z), w, 6.0, h, rng)
+	for i in 12:
+		var w := 5.0 + rng.randf() * 2.0
+		var h := 3.4 + rng.randf() * 3.0
+		var x := -30.0 + i * 5.2 + rng.randf() * 1.0
+		var z := -95.0 - rng.randf() * 4.0
+		if x > -22.0 and x < -6.0:
+			continue
+		Props.house(self, Vector3(x, max(land_h(x, z), 0.5), z), w, 6.0, h, rng)
+	Props.church(self, Vector3(-14, max(land_h(-14, -100), 0.5), -100))
+	# Farolas del paseo
+	var lamp_m := _mat(Color("ffdba0"))
+	lamp_m.emission_enabled = true
+	lamp_m.emission = Color("ffb45a")
+	lamp_m.emission_energy_multiplier = 2.0
+	for i in 5:
+		var x := -28.0 + i * 14.0
+		var y: float = max(land_h(x, -79.0), 0.6)
+		_mesh(Props.cyl(0.07, 0.09, 4.0, 6), iron, Vector3(x, y + 2.0, -79.0))
+		var gl := SphereMesh.new()
+		gl.radius = 0.25
+		gl.height = 0.5
+		_mesh(gl, lamp_m, Vector3(x, y + 4.1, -79.0))
 	# Farola del muelle
 	var pole := CylinderMesh.new()
 	pole.top_radius = 0.12
@@ -404,46 +545,7 @@ func _build_boat() -> void:
 
 
 func make_boat(hull_col: Color, stripe1: Color, stripe2: Color) -> Dictionary:
-	var node := Node3D.new()
-	add_child(node)
-	var white := _mat(hull_col, 0.6)
-	var hull := BoxMesh.new()
-	hull.size = Vector3(2.4, 1.1, 5)
-	_mesh(hull, white, Vector3(0, 0.2, 0), node)
-	var bow := PrismMesh.new()
-	bow.size = Vector3(2.4, 2.2, 1.1)
-	var bow_mi := _mesh(bow, white, Vector3(0, 0.2, -3.6), node)
-	bow_mi.rotation_degrees.x = -90
-	var s1 := BoxMesh.new()
-	s1.size = Vector3(2.46, 0.22, 5.02)
-	_mesh(s1, _mat(stripe1, 0.5), Vector3(0, 0.55, 0), node)
-	var s2 := BoxMesh.new()
-	s2.size = Vector3(2.46, 0.12, 5.02)
-	_mesh(s2, _mat(stripe2, 0.5), Vector3(0, 0.3, 0), node)
-	var cabin := BoxMesh.new()
-	cabin.size = Vector3(1.6, 1.2, 1.6)
-	_mesh(cabin, _mat(hull_col.darkened(0.08), 0.7), Vector3(0, 1.3, 0.9), node)
-	var mast := CylinderMesh.new()
-	mast.top_radius = 0.07
-	mast.bottom_radius = 0.07
-	mast.height = 3
-	_mesh(mast, _mat(Color("6b4a2f")), Vector3(0, 2.6, -0.6), node)
-	var bulb := SphereMesh.new()
-	bulb.radius = 0.22
-	bulb.height = 0.44
-	var lm := _mat(Color("553311"))
-	lm.emission_enabled = true
-	lm.emission = Color("ffe7a0")
-	lm.emission_energy_multiplier = 0.0
-	_mesh(bulb, lm, Vector3(0, 4.1, -0.6), node)
-	var light := OmniLight3D.new()
-	light.light_color = Color("ffd27a")
-	light.omni_range = 38
-	light.shadow_enabled = true
-	light.light_energy = 0.0
-	light.position = Vector3(0, 4.2, -0.6)
-	node.add_child(light)
-	return {"node": node, "light": light, "lamp_mat": lm}
+	return Props.build_boat(self, hull_col, stripe1, stripe2)
 
 
 func _build_spots() -> void:
@@ -506,35 +608,39 @@ func _apply_light() -> void:
 	var h := hour()
 	var day_top := Color("4f8fbf")
 	var day_hor := Color("a9cbd8")
-	var night_top := Color("02060c")
-	var night_hor := Color("0a1520")
-	var dusk := Color("d98a5f")
+	var night_top := Color("071426")
+	var night_hor := Color("1b2c44")
+	var dusk := Color("f08a4b")
 	var dusk_amt := 0.0
 	if (h > 17.0 and h < 20.5) or (h > 5.0 and h < 7.5):
-		dusk_amt = max(0.0, 1.0 - abs(l - 0.45) * 2.2)
-	var hor := night_hor.lerp(day_hor, l).lerp(dusk, dusk_amt * 0.6)
-	sky_mat.sky_top_color = night_top.lerp(day_top, l)
-	sky_mat.sky_horizon_color = hor
-	sky_mat.ground_horizon_color = hor
-	sky_mat.ground_bottom_color = night_top.lerp(Color("1b2a2f"), l)
-	sky_mat.sun_angle_max = 30
+		dusk_amt = max(0.0, 1.0 - abs(l - 0.4) * 2.0)
+	var hor := night_hor.lerp(day_hor, l).lerp(dusk, dusk_amt * 0.75)
+	var top_c := night_top.lerp(day_top, l)
 	var wb: Dictionary = weather.blend if weather else {"fog": 0.0, "tint": Color(0, 0, 0, 0), "sun": 1.0}
 	var tint: Color = wb["tint"]
 	hor = hor.lerp(Color(tint.r, tint.g, tint.b) * (0.25 + 0.75 * l), tint.a)
-	sky_mat.sky_horizon_color = hor
-	sky_mat.ground_horizon_color = hor
-	sky_mat.sky_top_color = sky_mat.sky_top_color.lerp(hor, tint.a * 0.6)
+	top_c = top_c.lerp(hor, tint.a * 0.6)
+	sky_mat.set_shader_parameter("top_color", top_c)
+	sky_mat.set_shader_parameter("horizon_color", hor)
+	sky_mat.set_shader_parameter("ground_color", hor.darkened(0.5))
+	sky_mat.set_shader_parameter("daylight", l)
+	sky_mat.set_shader_parameter("time_s", t)
+	sky_mat.set_shader_parameter("sun_tint", Color(1.0, 0.92, 0.78).lerp(Color("ff9a50"), dusk_amt))
+	var cover := {"despejado": 0.35, "calima": 0.15, "lluvia": 0.9, "picada": 0.65}
+	sky_mat.set_shader_parameter("cloud_cover", cover.get(weather.current if weather else "despejado", 0.35))
+	sky_mat.set_shader_parameter("cloud_tint", Color(1, 1, 1).lerp(Color(1.0, 0.75, 0.55), dusk_amt * 0.8).lerp(Color(0.6, 0.62, 0.66), float(wb.get("rain", 0.0)) * 0.7))
+	ocean_mat.set_shader_parameter("sky_color", hor.lerp(top_c, 0.35))
 	env.fog_light_color = hor
-	env.fog_density = lerp(0.03, 0.004, l) + panic * 0.00015 + float(wb["fog"])
+	env.fog_density = lerp(0.016, 0.0026, l) * (1.0 - dusk_amt * 0.5) + panic * 0.00015 + float(wb["fog"])
 	if quest and quest.boss and quest.boss.phase in ["rise", "fight", "defeat"]:
 		env.fog_density *= 0.45   # el resplandor de la lava aclara la noche
-	env.ambient_light_energy = 0.2 + l * 0.5
+	env.ambient_light_energy = 0.55 + l * 0.25
 	# Sol: sube y baja con la hora
-	var sun_elev := sin(PI * (h - 6.0) / 12.0) * 70.0
+	var sun_elev := sin(PI * (h - 5.6) / 14.4) * 68.0
 	sun.rotation_degrees = Vector3(-max(sun_elev, -5.0), -30.0 + (h - 12.0) * 10.0, 0)
 	sun.light_energy = (0.05 + l * 0.95) * float(wb["sun"])
 	sun.light_color = Color(1.0, 0.9, 0.75).lerp(Color("ffb070"), dusk_amt)
-	moon.light_energy = (1.0 - l) * 0.25
+	moon.light_energy = (1.0 - l) * 0.5
 	port_light.light_energy = (1.0 - l * 2.0) * 2.5 if l < 0.5 else 0.0
 	if mode != "cinematic":
 		lamp_light.light_energy = (1.6 + (1.0 - l) * 1.4) if lamp_on else 0.0
@@ -1066,7 +1172,7 @@ func _update_boat(dt: float) -> void:
 	boat.position = Vector3(bx, wy + 0.1, bz)
 	boat.basis = Basis.from_euler(Vector3(gz * 0.8, ba, -gx * 0.8))
 
-	var target := Vector3(bx + sin(ba) * 20.0, 13.0, bz + cos(ba) * 20.0)
+	var target := Vector3(bx + sin(ba) * 17.0, 8.5, bz + cos(ba) * 17.0)
 	if mode == "menu":
 		var a := t * 0.05 + 2.2
 		camera.position = Vector3(4.5 + cos(a) * 30.0, 9.0, -50.0 + sin(a) * 18.0)
@@ -1080,7 +1186,7 @@ func _update_boat(dt: float) -> void:
 		camera.look_at(Vector3(bx, 1.5, bz).lerp(Vector3(bp.x, 4.0, bp.z), 0.45))
 	elif mode != "cinematic":
 		camera.position = camera.position.lerp(target, 1.0 - pow(0.02, dt))
-		camera.look_at(Vector3(bx, 1.5, bz))
+		camera.look_at(Vector3(bx - sin(ba) * 6.0, 2.0, bz - cos(ba) * 6.0))
 
 
 func _update_world(dt: float) -> void:
