@@ -396,7 +396,7 @@ func _build_spots() -> void:
 		tm.inner_radius = 2.2
 		tm.outer_radius = 2.5
 		var ring := _mesh(tm, ring_mat, Vector3.ZERO, g)
-		spots.append({"g": g, "bub": bubs, "ring": ring, "zone": s[2], "x": float(s[0]), "z": float(s[1]), "left": 3})
+		spots.append({"g": g, "bub": bubs, "ring": ring, "zone": s[2], "x": float(s[0]), "z": float(s[1]), "left": 1, "back": 0.0})
 
 
 func _build_eyes() -> void:
@@ -425,7 +425,7 @@ func advance(minutes: float) -> void:
 	if after > before:
 		day = after + 1
 		for s in spots:
-			s["left"] = 3
+			s["left"] = 1
 		ui.toast("Amanece el día %d. Los cardúmenes han vuelto." % day)
 
 
@@ -623,7 +623,9 @@ func end_fishing(ok: bool, cancel := false) -> void:
 		quest.got_stone()
 		return
 	if ok:
-		fishing["spot"]["left"] -= 1
+		# El banco se agota y vuelve a aparecer unas horas después
+		fishing["spot"]["left"] = 0
+		fishing["spot"]["back"] = game_time + randf_range(5.0, 9.0) * 60.0
 		pending = {"key": fishing["key"], "mut": fishing["mut"]}
 		mode = "catch"
 		if pending["mut"]:
@@ -758,7 +760,7 @@ func sleep() -> void:
 	day = d + 1
 	panic = 0.0
 	for s in spots:
-		s["left"] = 3
+		s["left"] = 1
 	ui.toast("Duermes en casa. Amanece el día %d. Partida guardada." % day)
 	save_game()
 
@@ -779,7 +781,7 @@ func save_game() -> void:
 		its.append({"key": it["key"], "mut": it["mut"], "shape": it["shape"], "r": it["r"], "c": it["c"]})
 	var left: Array = []
 	for s in spots:
-		left.append(s["left"])
+		left.append([s["left"], s["back"]])
 	var data := {
 		"version": 1,
 		"game_time": game_time, "day": day, "money": money, "debt": debt,
@@ -827,7 +829,11 @@ func load_game() -> bool:
 		items.append({"key": str(it["key"]), "mut": bool(it["mut"]), "shape": sh, "r": int(it["r"]), "c": int(it["c"])})
 	var left: Array = d.get("spots", [])
 	for i in min(left.size(), spots.size()):
-		spots[i]["left"] = int(left[i])
+		if typeof(left[i]) == TYPE_ARRAY:
+			spots[i]["left"] = int(left[i][0])
+			spots[i]["back"] = float(left[i][1])
+		else:
+			spots[i]["left"] = min(int(left[i]), 1)
 	quest.state = str(d.get("quest_state", "talk1"))
 	quest.stones = int(d.get("stones", 0))
 	journal = d.get("journal", {})
@@ -973,6 +979,8 @@ func _update_world(dt: float) -> void:
 	ocean_mat.set_shader_parameter("time_s", t)
 	ocean_mat.set_shader_parameter("amp", amp)
 	for s in spots:
+		if s["left"] == 0 and game_time >= s["back"]:
+			s["left"] = 1
 		var vis: bool = s["left"] > 0
 		s["g"].visible = vis
 		if not vis:
