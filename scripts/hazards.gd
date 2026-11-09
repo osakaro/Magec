@@ -90,6 +90,8 @@ func _build_rocks() -> void:
 		ring.material_override = foam
 		ring.scale.y = 0.08
 		g.add_child(ring)
+		# las rocas visibles ya tienen espuma del propio mar; el anillo marca solo los bajíos
+		ring.visible = sunk
 		rocks.append({"x": x, "z": z, "r": r, "sunk": sunk, "ring": ring})
 
 

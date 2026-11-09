@@ -3,6 +3,7 @@ extends CanvasLayer
 ## El reloj es un arco de sol (Magec) y luna; el miedo es un ojo que se abre.
 
 const Data = preload("res://scripts/data.gd")
+const FishArt = preload("res://scripts/fishart.gd")
 
 const F_TITLE = preload("res://fonts/AlegreyaSC-Bold.ttf")
 const F_TITLE_R = preload("res://fonts/AlegreyaSC-Regular.ttf")
@@ -70,6 +71,9 @@ var dlg_name: Label
 var dlg_text: Label
 
 var intro: Control
+var compass: Compass
+var map_panel: WoodPanel
+var map_chart: ChartMap
 var hud_nodes: Array = []
 var menu_layer: Control
 var menu_buttons: VBoxContainer
@@ -412,7 +416,7 @@ class FishIcon extends Control:
 			draw_line(Vector2(0, 20 + i * 22), Vector2(size.x, 20 + i * 22), Color(0.4, 0.5, 0.6, 0.1), 1.0)
 		if mut:
 			draw_rect(r.grow(-6), Color(BLOOD, 0.5), false, 2.0)
-		load("res://scripts/ui.gd").draw_fish(self, Rect2(size.x * 0.22, 6, size.x * 0.56, size.y - 12), Data.FISH[key]["c"], mut, false)
+		FishArt.draw(self, Rect2(size.x * 0.18, 8, size.x * 0.64, size.y - 22), key, mut)
 		draw_string(F_HAND, Vector2(14, size.y - 12), "Ejemplar · Güímar", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(INK, 0.55))
 
 
@@ -497,7 +501,7 @@ class HoldGrid extends Control:
 				draw_rect(rect, Color(BLOOD, 0.7), false, 1.5)
 			else:
 				draw_rect(rect, Color(SEA, 0.35))
-			load("res://scripts/ui.gd").draw_fish(self, rect.grow(-4), Data.FISH[it["key"]]["c"], it["mut"], sh.size() > sh[0].size())
+			FishArt.draw(self, rect.grow(-3), it["key"], it["mut"], sh.size() > sh[0].size())
 			if i == sel:
 				draw_rect(rect.grow(2), SUN, false, 2.5)
 			i += 1
@@ -579,6 +583,7 @@ func _ready() -> void:
 	_build_port(root)
 	_build_dialogue(root)
 	_build_journal(root)
+	_build_map(root)
 	_build_intro(root)
 	_build_menu(root)
 	_build_pause(root)
@@ -736,7 +741,7 @@ func _build_hud(root: Control) -> void:
 	keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(keys)
 	hud_nodes.append(keys)
-	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["I", "Bodega"], ["C", "Cuaderno"]]:
+	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["I", "Bodega"], ["C", "Cuaderno"], ["M", "Mapa"]]:
 		keys.add_child(KeyCap.new(k[0]))
 		keys.add_child(_shadowed(_label(k[1] + "   ", 15, PAPER)))
 
@@ -857,11 +862,11 @@ class JournalBook extends Control:
 			var fr := Rect2(cell.position + Vector2(18, 10), Vector2(cell.size.x - 36, 52))
 			var f: Dictionary = Data.FISH[key]
 			if seen_n or seen_m:
-				load("res://scripts/ui.gd").draw_fish(self, fr, f["c"], seen_m and not seen_n, false)
+				FishArt.draw(self, fr, key, seen_m and not seen_n)
 				draw_string(F_TITLE, cell.position + Vector2(10, 84), f["n"], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 18, INK)
 				draw_string(F_UI, cell.position + Vector2(10, 102), "%s · %d €" % [where, f["v"]], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.6))
 			else:
-				load("res://scripts/ui.gd").draw_fish(self, fr, Color(0.18, 0.15, 0.13, 0.55), false, false)
+				FishArt.draw(self, fr, key, false, false, true)
 				draw_string(F_TITLE, cell.position + Vector2(10, 84), "???", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(INK, 0.45))
 				draw_string(F_UI, cell.position + Vector2(10, 102), where, HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.45))
 			var mt: String = f["m"] if seen_m else "Mutante: ???"
@@ -888,6 +893,48 @@ func _build_journal(root: Control) -> void:
 	foot.add_child(KeyCap.new("C"))
 	foot.add_child(_label("  cerrar", 14, SALT))
 	vb.add_child(foot)
+
+
+func _build_map(root: Control) -> void:
+	compass = Compass.new()
+	compass.game = main
+	compass.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	compass.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	compass.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	compass.offset_right = -20
+	compass.offset_bottom = -14
+	root.add_child(compass)
+	hud_nodes.append(compass)
+	map_panel = _center_panel(root, 1180)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	map_panel.add_child(vb)
+	vb.add_child(Plaque.new("CARTA DE NAVEGACIÓN", 20))
+	map_chart = ChartMap.new()
+	map_chart.full = true
+	map_chart.custom_minimum_size = Vector2(1130, 560)
+	map_chart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_chart.clip_contents = true
+	vb.add_child(map_chart)
+	var foot := HBoxContainer.new()
+	vb.add_child(foot)
+	var tip := _label("Para cruzar a otra isla, entra en el puerto y elige el viaje. La flecha dorada de la brújula señala tu objetivo.", 15, SALT)
+	tip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	foot.add_child(tip)
+	foot.add_child(KeyCap.new("M"))
+	foot.add_child(_label("  cerrar", 14, SALT))
+
+
+func toggle_map() -> void:
+	map_panel.visible = not map_panel.visible
+	hold_panel.visible = false
+	journal_panel.visible = false
+	if map_panel.visible:
+		var ports := {"tenerife": Vector2(-16.37, 28.29), "gran_canaria": Vector2(-15.42, 28.14), "la_gomera": Vector2(-17.11, 28.09)}
+		map_chart.here = ports.get(main.region, Vector2.ZERO)
+		var gk: String = main.quest.goal_island_key()
+		map_chart.goal = ports.get(gk, Vector2.ZERO) if gk != main.region else Vector2.ZERO
+		map_chart.goal_name = Data.REGIONS[gk]["name"] if Data.REGIONS.has(gk) else ("La Gomera (próximamente)" if gk == "la_gomera" else "")
 
 
 func toggle_journal() -> void:
@@ -1278,6 +1325,73 @@ func _menu_button(text: String, cb: Callable) -> Button:
 
 
 
+## Brújula del barco: la rosa gira con el rumbo y la flecha dorada señala el objetivo.
+class Compass extends Control:
+	var game
+	func _init() -> void:
+		custom_minimum_size = Vector2(190, 214)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _process(_d: float) -> void:
+		if is_visible_in_tree():
+			queue_redraw()
+	func _pos(c: Vector2, ang: float, r: float) -> Vector2:
+		return c + Vector2(sin(ang), -cos(ang)) * r
+	func _draw() -> void:
+		if game == null:
+			return
+		var c := Vector2(95, 95)
+		var R := 80.0
+		var heading: float = -game.ba
+		draw_circle(c + Vector2(3, 5), R + 6, Color(0, 0, 0, 0.35))
+		draw_circle(c, R + 6, BRASS_D)
+		draw_circle(c, R + 3, BRASS)
+		draw_circle(c, R, Color("1d2a30"))
+		draw_circle(c, R - 18, Color("24343b"))
+		# marcas cada 15°
+		for i in 24:
+			var a := deg_to_rad(i * 15.0) - heading
+			var l := 10.0 if i % 6 == 0 else 5.0
+			draw_line(_pos(c, a, R - 2), _pos(c, a, R - 2 - l), Color(PAPER, 0.7), 1.5, true)
+		var letters := [["N", 0.0], ["E", 90.0], ["S", 180.0], ["O", 270.0]]
+		for lt in letters:
+			var a := deg_to_rad(lt[1]) - heading
+			var p := _pos(c, a, R - 25)
+			var col := BLOOD.lightened(0.2) if lt[0] == "N" else PAPER
+			var tw := F_TITLE.get_string_size(lt[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+			draw_string(F_TITLE, p + Vector2(-tw / 2, 7), lt[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, col)
+		# rosa central pequeña
+		for i in 8:
+			var a := i * TAU / 8.0 - heading
+			var r := 22.0 if i % 2 == 0 else 13.0
+			var tip := _pos(c, a, r)
+			draw_colored_polygon(PackedVector2Array([c, _pos(c, a - 0.4, 6), tip]), Color(PAPER, 0.5) if i % 2 else Color(BRASS, 0.8))
+			draw_colored_polygon(PackedVector2Array([c, tip, _pos(c, a + 0.4, 6)]), Color(INK, 0.6))
+		# objetivo
+		var tg = game.quest.target()
+		var info := "Sin rumbo fijo"
+		if tg != null:
+			var v: Vector2 = tg - Vector2(game.bx, game.bz)
+			var dist := v.length()
+			var bearing := atan2(v.x, -v.y)
+			var a := bearing - heading
+			var tip := _pos(c, a, R - 6)
+			var base := _pos(c, a, R - 40)
+			var side := Vector2(cos(a), sin(a)) * 9.0
+			draw_colored_polygon(PackedVector2Array([tip, base + side, base - side]), SUN)
+			draw_line(c, base, Color(SUN, 0.6), 2.0, true)
+			info = "Objetivo · %d m" % int(dist) if dist > 12.0 else "Has llegado"
+		var gi: String = game.quest.goal_island()
+		if gi != "":
+			info = "Ve al puerto y cruza a " + gi
+		# línea de proa fija
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -R - 8), c + Vector2(-7, -R + 6), c + Vector2(7, -R + 6)]), BLOOD)
+		draw_circle(c, 4, BRASS)
+		var tw := F_UI_B.get_string_size(info, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		var tp := Vector2(c.x - tw / 2, c.y + R + 34)
+		draw_string_outline(F_UI_B, tp, info, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 6, Color(0, 0, 0, 0.75))
+		draw_string(F_UI_B, tp, info, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, PAPER)
+
+
 ## Carta náutica de Canarias para la portada (pergamino, islas, rosa de los vientos).
 class ChartMap extends Control:
 	const LON0 := -19.0
@@ -1294,6 +1408,10 @@ class ChartMap extends Control:
 	}
 	const BORONDON := [[-18.78, 28.88], [-18.62, 28.9], [-18.55, 28.8], [-18.6, 28.68], [-18.72, 28.66], [-18.82, 28.76]]
 	var t := 0.0
+	var here := Vector2.ZERO      # lon, lat de tu barco (0 = no se muestra)
+	var goal := Vector2.ZERO      # lon, lat del próximo destino
+	var goal_name := ""
+	var full := false             # true: ocupa todo el ancho (mapa del juego)
 	var k := 200.0
 	var ox := 520.0
 	var oy := 240.0
@@ -1315,9 +1433,10 @@ class ChartMap extends Control:
 		var W := size.x
 		var H := size.y
 		# encaja la carta en la parte derecha de la pantalla
-		var mw: float = W * 0.64
-		k = mw / (5.85 * 0.879)
-		ox = W - mw - W * 0.03
+		var mw: float = W * (0.9 if full else 0.64)
+		k = min(mw / (5.85 * 0.879), H * 0.82 / 2.1)
+		mw = k * 5.85 * 0.879
+		ox = (W - mw) / 2.0 if full else W - mw - W * 0.03
 		oy = (H - 2.1 * k) / 2.0
 		# pergamino
 		draw_rect(Rect2(Vector2.ZERO, size), Color("d6c49b"))
@@ -1407,6 +1526,22 @@ class ChartMap extends Control:
 			draw_dashed_line(so[i], so[i + 1], Color(ink, ga + 0.2), 1.5, 5.0)
 		var sc := P(-18.68, 28.78)
 		draw_string(F_HAND, sc + Vector2(-58, 52), "¿San Borondón?", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(ink, ga + 0.35))
+		# marcas del mapa del juego
+		if goal != Vector2.ZERO:
+			var gp := P(goal.x, goal.y)
+			for i in 10:
+				var a := i * TAU / 10.0 - PI / 2
+				var r := 14.0 if i % 2 == 0 else 6.0
+				var a2 := (i + 1) * TAU / 10.0 - PI / 2
+				var r2 := 14.0 if (i + 1) % 2 == 0 else 6.0
+				draw_colored_polygon(PackedVector2Array([gp, gp + Vector2(cos(a), sin(a)) * r, gp + Vector2(cos(a2), sin(a2)) * r2]), SUN.darkened(0.15))
+			draw_string(F_HAND, gp + Vector2(16, -10), goal_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color("8a5a10"))
+		if here != Vector2.ZERO:
+			var hp := P(here.x, here.y)
+			var pulse := 0.5 + 0.5 * sin(t * 4.0)
+			draw_arc(hp, 10 + pulse * 8, 0, TAU, 24, Color(BLOOD, 1.0 - pulse * 0.7), 2.5, true)
+			draw_circle(hp, 6, BLOOD)
+			draw_string(F_HAND, hp + Vector2(14, 40), "Estás aquí", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, BLOOD.darkened(0.25))
 		# rosa de los vientos
 		var rc := Vector2(W - 120, H - 130)
 		for i in 8:

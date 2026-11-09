@@ -422,6 +422,23 @@ func target() -> Variant:
 	return null
 
 
+func goal_island_key() -> String:
+	## Isla a la que apunta la historia ahora mismo.
+	if state == "go_gc" or (_gc_state() and state != "gc_done"):
+		return "gran_canaria"
+	if state == "gc_done":
+		return "la_gomera"
+	return "tenerife"
+
+
+func goal_island() -> String:
+	## Nombre de la isla a la que hay que viajar, si no es la actual.
+	var k := goal_island_key()
+	if k == main.region or k == "la_gomera":
+		return ""
+	return Data.REGIONS[k]["name"]
+
+
 func near(p: Vector2, r: float) -> bool:
 	return Vector2(main.bx, main.bz).distance_to(p) < r
 

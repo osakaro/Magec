@@ -19,12 +19,15 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 | F | Farol de Magec |
 | I | Bodega |
 | C | Cuaderno de especies |
+| M | Mapa (carta de navegación) |
 | N | Echar nasa |
 | R | Echar / recoger la red |
 | Esc | Pausa / recoger sedal |
 
 ## Qué hay en esta versión
 
+- Brújula con flecha al objetivo y mapa de Canarias (M). Giro del barco suave, con inercia y escora.
+- Ilustraciones propias de las 18 especies y de sus mutantes.
 - Portada con una carta náutica antigua de las Islas Canarias.
 - Historia: Chaxiraxi, Pancho el Viejo y Nieves en Güímar; Guayota (primer jefe); viaje a Gran Canaria con Don Baltasar (el armador) y Yaiza la farera; dos Piedras de Magec.
 - 30 rocas y bajíos (anillo de espuma). Casco con 3 puntos: si llega a 0 naufragas, pierdes la carga y te remolcan. Se repara en el puerto.

@@ -52,6 +52,7 @@ var bx := 0.0
 var bz := -40.0
 var ba := 0.0
 var bv := 0.0
+var bturn := 0.0   # velocidad de giro (con inercia)
 
 # Pesca
 var fishing: Dictionary = {}
@@ -1101,6 +1102,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			ui.toggle_hold()
 		KEY_C:
 			ui.toggle_journal()
+		KEY_M:
+			ui.toggle_map()
 		KEY_N:
 			gear.drop_nasa()
 		KEY_R:
@@ -1143,11 +1146,16 @@ func _update_boat(dt: float) -> void:
 		bv = clamp(bv, -3.0, vmax)
 		bv *= 1.0 - 0.6 * dt
 		var turn := (1.0 if lf else 0.0) - (1.0 if rt else 0.0)
-		ba += turn * dt * (0.5 + min(1.0, abs(bv) / 6.0)) * 1.1
+		# El timón no gira de golpe: la velocidad de giro sube y baja poco a poco,
+		# y el barco describe una curva. Gira mejor cuanto más rápido va.
+		var max_turn: float = 0.95 * (0.35 + min(1.0, abs(bv) / 7.0) * 0.65)
+		bturn = move_toward(bturn, turn * max_turn, dt * (1.1 if turn != 0.0 else 1.6))
 		if abs(bv) > 0.6:
 			advance(dt * abs(bv) * 1.6)
 	else:
+		bturn = move_toward(bturn, 0.0, dt * 2.0)
 		bv *= 1.0 - 3.0 * dt
+	ba += bturn * dt
 
 	var nx := bx - sin(ba) * bv * dt
 	var nzp := bz - cos(ba) * bv * dt
@@ -1170,7 +1178,8 @@ func _update_boat(dt: float) -> void:
 	var gx := wave(bx + 1.0, bz, t) - wy
 	var gz := wave(bx, bz + 1.0, t) - wy
 	boat.position = Vector3(bx, wy + 0.1, bz)
-	boat.basis = Basis.from_euler(Vector3(gz * 0.8, ba, -gx * 0.8))
+	# se escora hacia fuera de la curva, como un barco de verdad
+	boat.basis = Basis.from_euler(Vector3(gz * 0.8, ba, -gx * 0.8 + bturn * min(abs(bv), 9.0) * 0.022))
 
 	var target := Vector3(bx + sin(ba) * 17.0, 8.5, bz + cos(ba) * 17.0)
 	if mode == "menu":
