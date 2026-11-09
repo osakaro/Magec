@@ -113,6 +113,42 @@ const FISH := {
 		"d": "Plateada con una ceja dorada. Desconfiada y lista.",
 		"md": "Las escamas son de oro de verdad. Pesan como monedas.",
 	},
+	"seifia": {
+		"game": "normal", "n": "Seifía", "m": "Seifía de dos colas", "shape": [[1, 1]], "v": 12, "mv": 38,
+		"c": Color("a9afab"),
+		"d": "Plateada con dos manchas negras, en la nuca y en la cola. Muy de La Gomera.",
+		"md": "Tiene una segunda cola donde debería estar la cabeza. No se sabe hacia dónde nada.",
+	},
+	"chopa": {
+		"game": "zigzag", "n": "Chopa", "m": "Chopa ahumada", "shape": [[1, 1], [1, 0]], "v": 16, "mv": 50,
+		"c": Color("8d9490"),
+		"d": "Gris con líneas doradas. Se esconde entre las piedras de los roques.",
+		"md": "Huele a hoguera. Por dentro la carne está negra y caliente.",
+	},
+	"fula": {
+		"game": "rapido", "n": "Fula negra", "m": "Fula de ojos azules", "shape": [[1]], "v": 7, "mv": 26,
+		"c": Color("2e2a24"),
+		"d": "Pequeña, oscura y peleona. Defiende su roca como un perro.",
+		"md": "Los ojos le brillan de un azul eléctrico, aunque la saques del agua.",
+	},
+	"pejeperro": {
+		"game": "tiron", "n": "Pejeperro", "m": "Pejeperro que ladra", "shape": [[1, 1, 1], [1, 1, 0]], "v": 38, "mv": 110,
+		"c": Color("c9452e"),
+		"d": "Rojo y amarillo, con el hocico puntiagudo. Escaso y muy buscado.",
+		"md": "Al sacarlo del agua hace un ruido seco. Como un ladrido lejano.",
+	},
+	"cabrilla": {
+		"game": "normal", "n": "Cabrilla", "m": "Cabrilla con cuernos", "shape": [[1, 1]], "v": 10, "mv": 32,
+		"c": Color("9a6a44"),
+		"d": "Parda con barras oscuras y rayas naranjas. Muerde cualquier cebo.",
+		"md": "Le han salido dos cuernos pequeños en la frente.",
+	},
+	"bicuda": {
+		"game": "rapido", "n": "Bicuda", "m": "Bicuda de niebla", "shape": [[1, 1, 1, 1, 1]], "v": 28, "mv": 85,
+		"c": Color("98a6ac"),
+		"d": "Una barracuda canaria: larga, plateada y con dientes de aguja.",
+		"md": "Es casi transparente. Al tocarla se te queda la mano fría y húmeda.",
+	},
 }
 
 const ZONES := {
@@ -129,6 +165,14 @@ const REGIONS := {
 			"orilla": ["vieja", "chicharro", "sargo", "salema", "vieja", "calamar"],
 			"media": ["medregal", "abade", "calamar", "sama", "chicharro", "sama"],
 			"fondo": ["cherne", "mero", "abade", "alfonsino", "alfonsino"],
+		},
+	},
+	"la_gomera": {
+		"name": "La Gomera", "place": "Costa de San Sebastián", "port": "Puerto de San Sebastián", "seed": 91.0,
+		"zones": {
+			"orilla": ["seifia", "fula", "cabrilla", "seifia", "chopa", "vieja"],
+			"media": ["chopa", "bicuda", "cabrilla", "sama", "bicuda"],
+			"fondo": ["pejeperro", "bicuda", "abade", "pejeperro", "cherne"],
 		},
 	},
 	"gran_canaria": {
@@ -152,6 +196,8 @@ const JOURNAL := [
 	["calamar", "Orilla · aguas medias"], ["medregal", "Aguas medias"], ["sama", "Aguas medias"],
 	["abade", "Aguas medias · fondo"], ["cherne", "Fondo profundo"], ["mero", "Fondo profundo"], ["alfonsino", "Fondo profundo"],
 	["dorada", "Gran Canaria · orilla"], ["bocinegro", "Gran Canaria · medias"], ["pargo", "Gran Canaria · fondo"],
+	["seifia", "La Gomera · orilla"], ["fula", "La Gomera · orilla"], ["cabrilla", "La Gomera · orilla"],
+	["chopa", "La Gomera · medias"], ["bicuda", "La Gomera · medias"], ["pejeperro", "La Gomera · fondo"],
 ]
 
 # Cómo se comporta cada tipo de pez en el minijuego

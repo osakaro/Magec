@@ -71,6 +71,9 @@ var dlg_name: Label
 var dlg_text: Label
 
 var intro: Control
+var silbo_panel: WoodPanel
+var silbo_bar: SilboBar
+var silbo_msg: Label
 var compass: Compass
 var map_panel: WoodPanel
 var map_chart: ChartMap
@@ -587,6 +590,7 @@ func _ready() -> void:
 	_build_dialogue(root)
 	_build_journal(root)
 	_build_map(root)
+	_build_silbo(root)
 	_build_intro(root)
 	_build_menu(root)
 	_build_pause(root)
@@ -744,7 +748,7 @@ func _build_hud(root: Control) -> void:
 	keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(keys)
 	hud_nodes.append(keys)
-	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["I", "Bodega"], ["C", "Cuaderno"], ["M", "Mapa"]]:
+	for k in [["WASD", "Navegar"], ["E", "Acción"], ["F", "Farol"], ["G", "Silbar"], ["I", "Bodega"], ["C", "Cuaderno"], ["M", "Mapa"]]:
 		keys.add_child(KeyCap.new(k[0]))
 		keys.add_child(_shadowed(_label(k[1] + "   ", 15, PAPER)))
 
@@ -843,9 +847,9 @@ func _build_hold(root: Control) -> void:
 
 ## Cuaderno de especies: páginas de papel con una ficha por pez.
 class JournalBook extends Control:
-	const COLS := 5
-	const CW := 168.0
-	const CH := 150.0
+	const COLS := 6
+	const CW := 162.0
+	const CH := 136.0
 	var game
 	func _init() -> void:
 		var rows := int(ceil(float(Data.JOURNAL.size()) / COLS))
@@ -862,18 +866,18 @@ class JournalBook extends Control:
 			var cell := Rect2(20 + (i % COLS) * CW, 15 + (i / COLS) * CH, CW - 10, CH - 10)
 			draw_rect(cell, Color(INK, 0.05))
 			draw_rect(cell, Color(INK, 0.25), false, 1.0)
-			var fr := Rect2(cell.position + Vector2(18, 10), Vector2(cell.size.x - 36, 52))
+			var fr := Rect2(cell.position + Vector2(18, 8), Vector2(cell.size.x - 36, 48))
 			var f: Dictionary = Data.FISH[key]
 			if seen_n or seen_m:
 				FishArt.draw(self, fr, key, seen_m and not seen_n)
-				draw_string(F_TITLE, cell.position + Vector2(10, 84), f["n"], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 18, INK)
-				draw_string(F_UI, cell.position + Vector2(10, 102), "%s · %d €" % [where, f["v"]], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.6))
+				draw_string(F_TITLE, cell.position + Vector2(10, 76), f["n"], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 18, INK)
+				draw_string(F_UI, cell.position + Vector2(10, 93), "%s · %d €" % [where, f["v"]], HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.6))
 			else:
 				FishArt.draw(self, fr, key, false, false, true)
-				draw_string(F_TITLE, cell.position + Vector2(10, 84), "???", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(INK, 0.45))
-				draw_string(F_UI, cell.position + Vector2(10, 102), where, HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.45))
+				draw_string(F_TITLE, cell.position + Vector2(10, 76), "???", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(INK, 0.45))
+				draw_string(F_UI, cell.position + Vector2(10, 93), where, HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 20, 12, Color(INK, 0.45))
 			var mt: String = f["m"] if seen_m else "Mutante: ???"
-			draw_string(F_HAND, cell.position + Vector2(10, 126), mt, HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 16, 17, BLOOD if seen_m else Color(INK, 0.35))
+			draw_string(F_HAND, cell.position + Vector2(10, 114), mt, HORIZONTAL_ALIGNMENT_LEFT, cell.size.x - 16, 17, BLOOD if seen_m else Color(INK, 0.35))
 
 
 func _build_journal(root: Control) -> void:
@@ -933,11 +937,62 @@ func toggle_map() -> void:
 	hold_panel.visible = false
 	journal_panel.visible = false
 	if map_panel.visible:
-		var ports := {"tenerife": Vector2(-16.37, 28.29), "gran_canaria": Vector2(-15.42, 28.14), "la_gomera": Vector2(-17.11, 28.09)}
+		var ports := {"tenerife": Vector2(-16.37, 28.29), "gran_canaria": Vector2(-15.42, 28.14), "la_gomera": Vector2(-17.11, 28.09), "lanzarote": Vector2(-13.55, 28.96)}
 		map_chart.here = ports.get(main.region, Vector2.ZERO)
 		var gk: String = main.quest.goal_island_key()
 		map_chart.goal = ports.get(gk, Vector2.ZERO) if gk != main.region else Vector2.ZERO
-		map_chart.goal_name = Data.REGIONS[gk]["name"] if Data.REGIONS.has(gk) else ("La Gomera (próximamente)" if gk == "la_gomera" else "")
+		map_chart.goal_name = Data.REGIONS[gk]["name"] if Data.REGIONS.has(gk) else ("Lanzarote (próximamente)" if gk == "lanzarote" else "")
+
+
+func _build_silbo(root: Control) -> void:
+	silbo_panel = _center_panel(root, 560)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 12)
+	silbo_panel.add_child(vb)
+	vb.add_child(Plaque.new("SILBO GOMERO", 20))
+	silbo_msg = _label("", 22, FOAM, F_TITLE_R)
+	silbo_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(silbo_msg)
+	silbo_bar = SilboBar.new()
+	vb.add_child(silbo_bar)
+	var keys := HBoxContainer.new()
+	keys.alignment = BoxContainer.ALIGNMENT_CENTER
+	keys.add_theme_constant_override("separation", 8)
+	keys.add_child(KeyCap.new("W"))
+	keys.add_child(_label("silbo agudo      ", 15, SALT))
+	keys.add_child(KeyCap.new("S"))
+	keys.add_child(_label("silbo grave", 15, SALT))
+	vb.add_child(keys)
+
+
+func open_silbo() -> void:
+	hold_panel.visible = false
+	silbo_panel.visible = true
+
+
+func close_silbo() -> void:
+	silbo_panel.visible = false
+
+
+func update_silbo(sb: Dictionary) -> void:
+	if sb.is_empty():
+		return
+	var seq: Array = main.quest.SILBO_ROUNDS[sb["round"]]
+	silbo_bar.seq = seq
+	silbo_bar.shown = sb["i"]
+	silbo_bar.input = sb["input"]
+	silbo_bar.phase = sb["phase"]
+	silbo_bar.queue_redraw()
+	var r := "Ronda %d de %d · " % [sb["round"] + 1, main.quest.SILBO_ROUNDS.size()]
+	match sb["phase"]:
+		"listen":
+			silbo_msg.text = r + "Escucha a Isidro…"
+		"repeat":
+			silbo_msg.text = r + "Ahora tú: repite el silbo."
+		"ok":
+			silbo_msg.text = "¡Bien silbado!"
+		"fail":
+			silbo_msg.text = "Ese no era. Isidro vuelve a silbar."
 
 
 func toggle_journal() -> void:
@@ -1328,6 +1383,41 @@ func _menu_button(text: String, cb: Callable) -> Button:
 
 
 
+## Notas del silbo: círculos dorados (agudo) y azules (grave).
+class SilboBar extends Control:
+	var seq: Array = []
+	var shown := 0
+	var input: Array = []
+	var phase := ""
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 90)
+	func _draw() -> void:
+		var n := seq.size()
+		if n == 0:
+			return
+		var gap := 70.0
+		var x0 := size.x / 2 - (n - 1) * gap / 2
+		for i in n:
+			var c := Vector2(x0 + i * gap, 30)
+			draw_circle(c, 24, Color(0, 0, 0, 0.3))
+			var val = null
+			if phase == "listen" and i < shown:
+				val = seq[i]
+			elif phase != "listen" and i < input.size():
+				val = input[i]
+			if val == null:
+				draw_arc(c, 22, 0, TAU, 24, Color(BRASS, 0.5), 2.0, true)
+				continue
+			var col := SUN if val == 1 else Color("5aa8d8")
+			if phase == "fail" and i == input.size() - 1:
+				col = BLOOD
+			draw_circle(c, 22, col)
+			var up: bool = val == 1
+			var tip := c + Vector2(0, -11 if up else 11)
+			draw_colored_polygon(PackedVector2Array([tip, c + Vector2(-9, 5 if up else -5), c + Vector2(9, 5 if up else -5)]), INK)
+			draw_string(F_UI_B, c + Vector2(-14, 46), "agudo" if up else "grave", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, PAPER)
+
+
 ## Brújula del barco: la rosa gira con el rumbo y la flecha dorada señala el objetivo.
 class Compass extends Control:
 	var game
@@ -1386,6 +1476,14 @@ class Compass extends Control:
 		var gi: String = game.quest.goal_island()
 		if gi != "":
 			info = "Ve al puerto y cruza a " + gi
+		# eco del silbo: marca azul que se desvanece
+		var et: float = game.quest.echo_time
+		if et > 0.0:
+			var ea: float = game.quest.echo_bearing - heading
+			var al: float = clamp(et / 6.0, 0.0, 1.0)
+			draw_arc(c, R - 9, ea - 0.35 - PI / 2, ea + 0.35 - PI / 2, 12, Color(0.4, 0.8, 1.0, al), 6.0, true)
+			draw_line(c, _pos(c, ea, R - 14), Color(0.4, 0.8, 1.0, al * 0.8), 2.0, true)
+			info = "Eco del silbo"
 		# línea de proa fija
 		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -R - 8), c + Vector2(-7, -R + 6), c + Vector2(7, -R + 6)]), BLOOD)
 		draw_circle(c, 4, BRASS)

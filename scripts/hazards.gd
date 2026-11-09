@@ -15,6 +15,7 @@ var bpos := Vector3.ZERO
 var bstate := ""   # rise, chase, circle, dive
 var btimer := 0.0
 var cooldown := 30.0
+var scare_t := 0.0
 
 
 func _ready() -> void:
@@ -215,6 +216,14 @@ func start_hunt() -> void:
 	main.ui.toast("Algo negro sale del agua. Tiene ojos de brasa.")
 
 
+func scare() -> void:
+	## El silbo espanta al Tibicena un momento.
+	if hunting and bstate in ["chase", "circle"]:
+		scare_t = 4.0
+		main.audio.sfx("growl", -4.0, 1.4)
+		main.ui.toast("El Tibicena aúlla y se aparta del silbo.")
+
+
 func end_hunt(instant := false) -> void:
 	if not hunting:
 		return
@@ -257,6 +266,11 @@ func _process(dt: float) -> void:
 				bstate = "chase"
 		"chase", "circle":
 			bpos.y = y_target + sin(tt * 6.0) * 0.15
+			if scare_t > 0.0:
+				scare_t -= dt
+				bpos -= to_boat.normalized() * 9.0 * dt
+				beast.position = bpos
+				return
 			var lamp: bool = main.lamp_on
 			var speed: float = 7.0 + (0.0 if lamp else 1.5)
 			if lamp and dist < 15.0:

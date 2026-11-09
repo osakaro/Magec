@@ -19,12 +19,24 @@ const CHAX_SPOT := Vector2(-62, -62)       # Chaxiraxi, junto a las Pirámides (
 const YAIZA_SPOT := Vector2(-70, -60)      # Yaiza, en el faro de La Isleta (Gran Canaria)
 const STONE_TF := Vector2(20, 150)
 const STONE_GC := Vector2(-40, 140)
+const STONE_LG := Vector2(120, 125)
+const LOST_POS := Vector2(-135, 105)       # Tomasín, perdido en la niebla (La Gomera)
+
+# Orden de la historia (para saber qué islas están abiertas)
+const ORDER := ["talk1", "stone", "return", "guayota", "guayota_back", "go_gc", "gc_armador", "gc_yaiza",
+	"gc_stone", "gc_return", "gc_done", "lg_silbo", "lg_lost", "lg_stone", "lg_return", "lg_done"]
 
 var state := "talk1"
 var stones := 0
 var pancho := "intro"     # intro -> wait -> done
 var met_nieves := false
 var mutants_sold := 0
+var silbo_learned := false
+var echo_time := 0.0          # cuánto dura la marca del eco en la brújula
+var echo_bearing := 0.0
+var whistle_cd := 0.0
+var tomasin: Dictionary = {}
+var silbo: Dictionary = {}    # estado del minijuego del silbo
 
 var lines: Array = []
 var line_i := 0
@@ -156,6 +168,48 @@ const YAIZA_LATER := [
 ]
 
 
+# ---- La Gomera
+const ISIDRO_1 := [
+	["Isidro", "¿Tú eres el muchacho de las piedras con luz? Yaiza me mandó recado por el silbo. Aquí todo se sabe."],
+	["Acorán", "¿Por el silbo?"],
+	["Isidro", "En La Gomera hablamos silbando, de barranco a barranco. La voz se pierde; el silbo cruza montes y niebla."],
+	["Isidro", "Y con esta niebla, mi niño, los ojos no te van a servir de nada. Tienes que aprender a escuchar."],
+	["Isidro", "Te enseño. Yo silbo y tú repites: el silbo agudo con la W, el grave con la S. Atento."],
+]
+const ISIDRO_2 := [
+	["Isidro", "¡Eso es! Tienes buen oído, como los de aquí."],
+	["Isidro", "Ahora te voy a pedir un favor. Mi sobrino Tomasín salió ayer a la mar y la niebla se lo tragó."],
+	["Isidro", "Sal a buscarlo. Pulsa la G para silbar: si te oye, te contestará, y sabrás de dónde viene su silbo."],
+	["Isidro", "Tráemelo de vuelta y te diré dónde brilla la piedra. Él la ha visto."],
+	["Isidro", "Ah, y otra cosa: los perros negros del mar odian el silbo. Si uno te persigue, sílbale fuerte."],
+]
+const ISIDRO_WAIT := [
+	["Isidro", "Silba con la G y escucha de dónde te contesta. La brújula te marcará el eco."],
+]
+const TOMASIN := [
+	["Tomasín", "¡Bendito silbo! Llevo un día dando vueltas en esta leche. No veía ni las manos."],
+	["Acorán", "Tu tío me manda a buscarte. Dice que viste una luz en el mar."],
+	["Tomasín", "La vi, sí. Anoche, al este, mar adentro: un brillo dorado bajo el agua."],
+	["Tomasín", "Pero alrededor nadaba algo negro. Grande como un perro de presa. Con los ojos como brasas."],
+	["Tomasín", "Yo me vuelvo a puerto siguiendo tu estela. Ve de noche y lleva el farol encendido."],
+]
+const ISIDRO_STONE_WAIT := [
+	["Isidro", "De noche, al este, mar adentro. Y si el perro negro se acerca, silba."],
+]
+const ISIDRO_RETURN := [
+	["Isidro", "Tomasín llegó sano y salvo. Y tú traes… ¡mírala! La tercera piedra."],
+	["Isidro", "Déjame silbarle. Los viejos decían que la luz de Magec despierta con el silbo.", "light"],
+	["Isidro", "Ahí está. Encendida. Tu farol también lo nota: ahora alumbra más que nunca."],
+	["Acorán", "Isidro, ¿usted conoció a mi abuelo, a Aridane?"],
+	["Isidro", "Lo conocí. Pasó por aquí hace treinta años, con la misma cara que tú. Buscaba la isla que canta."],
+	["Isidro", "Me dijo que en San Borondón no cantan mujeres. Que lo que se oye es algo enorme respirando bajo la tierra."],
+	["Isidro", "La próxima piedra está en Lanzarote, entre volcanes. Pero eso ya es otra travesía, mi niño."],
+]
+const ISIDRO_LATER := [
+	["Isidro", "Si la niebla te pierde, silba. La Gomera siempre contesta."],
+]
+
+
 func _ready() -> void:
 	beacon_mat = StandardMaterial3D.new()
 	beacon_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -179,10 +233,20 @@ func _ready() -> void:
 		boss.main = self.main
 		boss.quest = self
 		main.add_child(boss)
-	else:
+	elif main.region == "gran_canaria":
 		_build_lighthouse()
 		_build_baltasar()
+	else:
+		_person(Vector3(-1.4, 1.2, -60.0), Color("5a4a3a"), Color("b98a6a"), Color("e8e0c8"))
+		_build_tomasin()
 	_build_stone_spot()
+
+
+func _build_tomasin() -> void:
+	var b: Dictionary = main.make_boat(Color("eae4d2"), Color("b8322a"), Color("1d5aa6"))
+	b["light"].light_energy = 1.6
+	b["lamp_mat"].emission_energy_multiplier = 3.0
+	tomasin = b
 
 
 # =====================================================================
@@ -352,7 +416,16 @@ func _build_stone_spot() -> void:
 
 
 func stone_pos() -> Vector2:
-	return STONE_TF if main.region == "tenerife" else STONE_GC
+	match main.region:
+		"tenerife":
+			return STONE_TF
+		"la_gomera":
+			return STONE_LG
+	return STONE_GC
+
+
+func prog(st: String = "") -> int:
+	return ORDER.find(st if st != "" else state)
 
 
 # =====================================================================
@@ -368,73 +441,95 @@ func _gc_state() -> bool:
 
 
 func objective() -> String:
-	if _in_tf():
-		match state:
-			"talk1":
-				return "Habla con Chaxiraxi, en la playa junto a las Pirámides de Güímar."
-			"stone":
-				return "Busca la Piedra de Magec: de noche, mar adentro, donde el agua brilla dorada."
-			"return":
-				return "Lleva la Piedra de Magec a Chaxiraxi."
-			"guayota":
-				return "De noche, frente al Teide, prende los tres fuegos de Magec. Lleva el farol encendido."
-			"guayota_back":
-				return "Guayota ha vuelto al fondo. Cuéntaselo a Chaxiraxi."
-			"go_gc":
-				return "Viaja a Gran Canaria desde el puerto de Güímar."
-		if _gc_state() and state != "gc_done":
-			return "Vuelve a Gran Canaria: allí te espera la segunda piedra."
-	else:
-		match state:
-			"go_gc", "gc_armador":
-				return "Habla con el armador, Don Baltasar, en el Puerto de La Luz."
-			"gc_yaiza":
-				return "Busca a Yaiza en el faro de La Isleta."
-			"gc_stone":
-				return "De noche, al norte, mar adentro: busca el brillo dorado. Algo lo vigila."
-			"gc_return":
-				return "Lleva la piedra al faro de Yaiza."
+	var gk := goal_island_key()
+	if gk != main.region and Data.REGIONS.has(gk):
+		return "Viaja a %s desde el puerto." % Data.REGIONS[gk]["name"]
+	match main.region:
+		"tenerife":
+			match state:
+				"talk1":
+					return "Habla con Chaxiraxi, en la playa junto a las Pirámides de Güímar."
+				"stone":
+					return "Busca la Piedra de Magec: de noche, mar adentro, donde el agua brilla dorada."
+				"return":
+					return "Lleva la Piedra de Magec a Chaxiraxi."
+				"guayota":
+					return "De noche, frente al Teide, prende los tres fuegos de Magec. Lleva el farol encendido."
+				"guayota_back":
+					return "Guayota ha vuelto al fondo. Cuéntaselo a Chaxiraxi."
+		"gran_canaria":
+			match state:
+				"go_gc", "gc_armador":
+					return "Habla con el armador, Don Baltasar, en el Puerto de La Luz."
+				"gc_yaiza":
+					return "Busca a Yaiza en el faro de La Isleta."
+				"gc_stone":
+					return "De noche, al norte, mar adentro: busca el brillo dorado. Algo lo vigila."
+				"gc_return":
+					return "Lleva la piedra al faro de Yaiza."
+		"la_gomera":
+			match state:
+				"gc_done", "lg_silbo":
+					return "Busca a Isidro el silbador en el muelle de San Sebastián."
+				"lg_lost":
+					return "Encuentra a Tomasín en la niebla: silba con la G y sigue el eco en la brújula."
+				"lg_stone":
+					return "De noche, al este, mar adentro: la piedra brilla bajo el agua. Silba si el perro negro te persigue."
+				"lg_return":
+					return "Lleva la piedra a Isidro, en el muelle."
 	if pancho == "wait" and _in_tf():
 		return "Pancho el Viejo quiere una vieja normal. Tiene una historia de tu abuelo."
-	return "Piedras de Magec: %d/7 · Próximo destino: La Gomera (próximamente)" % stones
+	var nxt: String = "Lanzarote (próximamente)" if state == "lg_done" else Data.REGIONS.get(gk, {"name": "?"})["name"]
+	return "Piedras de Magec: %d/7 · Próximo destino: %s" % [stones, nxt]
 
 
 func target() -> Variant:
 	var night: bool = main.is_night()
-	if _in_tf():
-		match state:
-			"talk1", "return", "guayota_back":
-				return CHAX_SPOT
-			"stone":
-				return STONE_TF if night else null
-			"guayota":
-				return boss.ARENA if boss else null
-			"go_gc":
-				return Vector2(0, -58)
-	else:
-		match state:
-			"go_gc", "gc_armador":
-				return Vector2(0, -58)
-			"gc_yaiza", "gc_return":
-				return YAIZA_SPOT
-			"gc_stone":
-				return STONE_GC if night else null
+	var gk := goal_island_key()
+	if gk != main.region and Data.REGIONS.has(gk):
+		return Vector2(0, -58)
+	match main.region:
+		"tenerife":
+			match state:
+				"talk1", "return", "guayota_back":
+					return CHAX_SPOT
+				"stone":
+					return STONE_TF if night else null
+				"guayota":
+					return boss.ARENA if boss else null
+		"gran_canaria":
+			match state:
+				"go_gc", "gc_armador":
+					return Vector2(0, -58)
+				"gc_yaiza", "gc_return":
+					return YAIZA_SPOT
+				"gc_stone":
+					return STONE_GC if night else null
+		"la_gomera":
+			match state:
+				"gc_done", "lg_silbo", "lg_return":
+					return Vector2(0, -58)
+				"lg_stone":
+					return STONE_LG if night else null
 	return null
 
 
 func goal_island_key() -> String:
 	## Isla a la que apunta la historia ahora mismo.
-	if state == "go_gc" or (_gc_state() and state != "gc_done"):
+	var p := prog()
+	if p >= prog("go_gc") and p < prog("gc_done"):
 		return "gran_canaria"
-	if state == "gc_done":
+	if p >= prog("gc_done") and p < prog("lg_done"):
 		return "la_gomera"
+	if p >= prog("lg_done"):
+		return "lanzarote"
 	return "tenerife"
 
 
 func goal_island() -> String:
 	## Nombre de la isla a la que hay que viajar, si no es la actual.
 	var k := goal_island_key()
-	if k == main.region or k == "la_gomera":
+	if k == main.region or not Data.REGIONS.has(k):
 		return ""
 	return Data.REGIONS[k]["name"]
 
@@ -446,9 +541,11 @@ func near(p: Vector2, r: float) -> bool:
 func hint() -> String:
 	if boss and boss.hint() != "":
 		return boss.hint()
+	if main.region == "la_gomera" and state == "lg_lost" and near(_tomasin_pos(), 12.0):
+		return "[color=#f2b33d]E[/color] · Hablar con Tomasín"
 	if _in_tf() and near(CHAX_SPOT, 10.0):
 		return "[color=#f2b33d]E[/color] · Hablar con Chaxiraxi"
-	if not _in_tf() and near(YAIZA_SPOT, 10.0):
+	if main.region == "gran_canaria" and near(YAIZA_SPOT, 10.0):
 		return "[color=#f2b33d]E[/color] · Hablar con Yaiza, la farera"
 	if _stone_active() and near(stone_pos(), 7.0):
 		return "[color=#f2b33d]E[/color] · Echar el sedal en el agua dorada"
@@ -456,7 +553,16 @@ func hint() -> String:
 
 
 func _stone_active() -> bool:
-	return main.is_night() and ((_in_tf() and state == "stone") or (not _in_tf() and state == "gc_stone"))
+	if not main.is_night():
+		return false
+	match main.region:
+		"tenerife":
+			return state == "stone"
+		"gran_canaria":
+			return state == "gc_stone"
+		"la_gomera":
+			return state == "lg_stone"
+	return false
 
 
 func try_interact() -> bool:
@@ -483,7 +589,12 @@ func try_interact() -> bool:
 			_:
 				start_dialogue(TALK_CHAX_LATER)
 		return true
-	if not _in_tf() and near(YAIZA_SPOT, 10.0):
+	if main.region == "la_gomera" and state == "lg_lost" and near(_tomasin_pos(), 12.0):
+		start_dialogue(TOMASIN, func():
+			state = "lg_stone"
+			main.ui.toast("Tomasín vuelve a puerto. La piedra brilla de noche, al este."))
+		return true
+	if main.region == "gran_canaria" and near(YAIZA_SPOT, 10.0):
 		match state:
 			"gc_yaiza":
 				start_dialogue(YAIZA_TALK, func(): state = "gc_stone")
@@ -507,7 +618,13 @@ func try_interact() -> bool:
 
 
 func got_stone() -> void:
-	state = "return" if _in_tf() else "gc_return"
+	match main.region:
+		"tenerife":
+			state = "return"
+		"gran_canaria":
+			state = "gc_return"
+		"la_gomera":
+			state = "lg_return"
 	main.panic = min(100.0, main.panic + 20.0)
 	main.audio.sfx("stone", -4.0, 0.7)
 	main.ui.toast("Has sacado la Piedra de Magec. Está fría como el fondo del mar.")
@@ -526,15 +643,135 @@ func boss_defeated() -> void:
 # ---------- Gente del puerto (se abre desde el panel del puerto) ----------
 func port_people() -> Array:
 	var out: Array = []
-	if _in_tf():
-		out.append(["Pancho el Viejo", "Pescador jubilado. Salía a la mar con tu abuelo.", _talk_pancho])
-		out.append(["Nieves", "La pescadera del muelle.", _talk_nieves])
-		if state == "go_gc" or _gc_state():
-			out.append(["Viajar a Gran Canaria", "Unas 5 horas de travesía hasta el Puerto de La Luz.", func(): main.travel("gran_canaria")])
-	else:
-		out.append(["Don Baltasar", "Armador del Puerto de La Luz.", _talk_baltasar])
-		out.append(["Volver a Tenerife", "Unas 5 horas de travesía hasta Güímar.", func(): main.travel("tenerife")])
+	match main.region:
+		"tenerife":
+			out.append(["Pancho el Viejo", "Pescador jubilado. Salía a la mar con tu abuelo.", _talk_pancho])
+			out.append(["Nieves", "La pescadera del muelle.", _talk_nieves])
+		"gran_canaria":
+			out.append(["Don Baltasar", "Armador del Puerto de La Luz.", _talk_baltasar])
+		"la_gomera":
+			out.append(["Isidro el silbador", "Un viejo de Hermigua que habla silbando.", _talk_isidro])
+	# viajes a las islas ya abiertas
+	var open := {"tenerife": true, "gran_canaria": prog() >= prog("go_gc"), "la_gomera": prog() >= prog("gc_done")}
+	for k in ["tenerife", "gran_canaria", "la_gomera"]:
+		if open[k] and k != main.region:
+			var dest: String = k
+			out.append(["Viajar a " + Data.REGIONS[k]["name"], "Unas 5 horas de travesía hasta " + Data.REGIONS[k]["port"] + ".", func(): main.travel(dest)])
 	return out
+
+
+func _talk_isidro() -> void:
+	match state:
+		"gc_done", "lg_silbo":
+			state = "lg_silbo"
+			start_dialogue(ISIDRO_1, func(): start_silbo())
+		"lg_lost":
+			start_dialogue(ISIDRO_WAIT)
+		"lg_stone":
+			start_dialogue(ISIDRO_STONE_WAIT)
+		"lg_return":
+			start_dialogue(ISIDRO_RETURN, func():
+				state = "lg_done"
+				stones = 3
+				main.lamp_mult = 0.25
+				main.ui.toast("Farol mejorado. Piedras de Magec: 3/7."))
+		_:
+			start_dialogue(ISIDRO_LATER)
+
+
+# ---------- Minijuego del silbo ----------
+const SILBO_ROUNDS := [[1, 0, 1], [0, 1, 1, 0], [1, 1, 0, 1, 0]]   # 1 = agudo, 0 = grave
+
+
+func start_silbo() -> void:
+	silbo = {"round": 0, "phase": "listen", "t": -0.8, "i": 0, "input": []}
+	main.mode = "silbo"
+	main.bv = 0.0
+	main.ui.open_silbo()
+
+
+func silbo_key(k: int) -> void:
+	if silbo.is_empty() or silbo["phase"] != "repeat":
+		return
+	var v := -1
+	if k in [KEY_W, KEY_UP]:
+		v = 1
+	elif k in [KEY_S, KEY_DOWN]:
+		v = 0
+	if v < 0:
+		return
+	main.audio.sfx("whistle_hi" if v == 1 else "whistle_lo", -4.0)
+	var seq: Array = SILBO_ROUNDS[silbo["round"]]
+	silbo["input"].append(v)
+	var n: int = silbo["input"].size()
+	if seq[n - 1] != v:
+		silbo["phase"] = "fail"
+		silbo["t"] = 0.0
+	elif n == seq.size():
+		silbo["phase"] = "ok"
+		silbo["t"] = 0.0
+
+
+func _update_silbo(dt: float) -> void:
+	if silbo.is_empty():
+		return
+	silbo["t"] += dt
+	var seq: Array = SILBO_ROUNDS[silbo["round"]]
+	match silbo["phase"]:
+		"listen":
+			if silbo["t"] >= 0.0 and silbo["i"] < seq.size() and silbo["t"] >= silbo["i"] * 0.75:
+				main.audio.sfx("whistle_hi" if seq[silbo["i"]] == 1 else "whistle_lo", -2.0)
+				silbo["i"] += 1
+			if silbo["i"] >= seq.size() and silbo["t"] > seq.size() * 0.75 + 0.4:
+				silbo["phase"] = "repeat"
+				silbo["input"] = []
+		"ok":
+			if silbo["t"] > 1.0:
+				silbo["round"] += 1
+				if silbo["round"] >= SILBO_ROUNDS.size():
+					silbo = {}
+					silbo_learned = true
+					main.ui.close_silbo()
+					main.mode = "sail"
+					start_dialogue(ISIDRO_2, func():
+						state = "lg_lost"
+						main.weather.from_dict({"current": "niebla", "next_change": main.game_time + 8 * 60})
+						main.ui.toast("Has aprendido el silbo gomero. Pulsa G para silbar."))
+					return
+				silbo["phase"] = "listen"
+				silbo["t"] = -0.6
+				silbo["i"] = 0
+				silbo["input"] = []
+		"fail":
+			if silbo["t"] > 1.2:
+				silbo["phase"] = "listen"
+				silbo["t"] = -0.4
+				silbo["i"] = 0
+				silbo["input"] = []
+	main.ui.update_silbo(silbo)
+
+
+# ---------- Silbar (G) ----------
+func whistle() -> void:
+	if not silbo_learned or whistle_cd > 0.0:
+		return
+	whistle_cd = 3.5
+	main.audio.sfx("whistle_call", -2.0)
+	if main.hazards.hunting:
+		main.hazards.scare()
+	if main.region == "la_gomera" and state == "lg_lost":
+		var v: Vector2 = _tomasin_pos() - Vector2(main.bx, main.bz)
+		echo_bearing = atan2(v.x, -v.y)
+		get_tree().create_timer(1.6).timeout.connect(func():
+			main.audio.sfx("whistle_answer", lerp(0.0, -14.0, clamp(v.length() / 260.0, 0.0, 1.0)))
+			echo_time = 6.0
+			var dirs := ["norte", "noreste", "este", "sureste", "sur", "suroeste", "oeste", "noroeste"]
+			var idx := int(round(fposmod(echo_bearing, TAU) / (TAU / 8.0))) % 8
+			main.ui.toast("Tomasín contesta desde el %s." % dirs[idx]))
+
+
+func _tomasin_pos() -> Vector2:
+	return LOST_POS
 
 
 func _talk_pancho() -> void:
@@ -575,7 +812,7 @@ func _talk_baltasar() -> void:
 
 
 func baltasar_open() -> bool:
-	return not _in_tf() and not (state == "go_gc" or state == "gc_armador")
+	return main.region == "gran_canaria" and not (state == "go_gc" or state == "gc_armador")
 
 
 func sell_mutants_to_baltasar() -> int:
@@ -654,6 +891,16 @@ func _show() -> void:
 
 func _process(dt: float) -> void:
 	var tt: float = main.t
+	whistle_cd = max(0.0, whistle_cd - dt)
+	echo_time = max(0.0, echo_time - dt)
+	if main.mode == "silbo":
+		_update_silbo(dt)
+	if not tomasin.is_empty():
+		var n: Node3D = tomasin["node"]
+		n.visible = state == "lg_lost"
+		var y: float = main.wave(LOST_POS.x, LOST_POS.y, tt)
+		n.position = Vector3(LOST_POS.x, y + 0.1, LOST_POS.y)
+		n.rotation = Vector3(sin(tt * 1.2) * 0.05, 0.8, cos(tt) * 0.05)
 	stone_spot.visible = _stone_active()
 	if stone_spot.visible:
 		var sp: Vector2 = stone_pos()
@@ -684,13 +931,14 @@ func _process(dt: float) -> void:
 # =====================================================================
 
 func to_dict() -> Dictionary:
-	return {"pancho": pancho, "met_nieves": met_nieves, "mutants_sold": mutants_sold}
+	return {"pancho": pancho, "met_nieves": met_nieves, "mutants_sold": mutants_sold, "silbo": silbo_learned}
 
 
 func from_dict(d: Dictionary) -> void:
 	pancho = str(d.get("pancho", "intro"))
 	met_nieves = bool(d.get("met_nieves", false))
 	mutants_sold = int(d.get("mutants_sold", 0))
+	silbo_learned = bool(d.get("silbo", false))
 	# Partidas antiguas: "done" pasaba directamente al final de la misión 1
 	if state == "done":
 		state = "guayota"

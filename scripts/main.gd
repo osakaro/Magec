@@ -26,6 +26,7 @@ const SAVE_PATH := "user://partida.json"
 
 # Relieve de la isla actual (cada isla desplaza el ruido del terreno)
 static var land_seed := 0.0
+static var land_steep := 0.38   # La Gomera tiene costas más empinadas
 
 const SHORE := -70.0
 const PORT := Vector3(0, 0, -58)
@@ -93,6 +94,7 @@ func _ready() -> void:
 	if start_action == "continue":
 		region = peek_region()
 	land_seed = Data.REGIONS[region]["seed"]
+	land_steep = 0.62 if region == "la_gomera" else 0.38
 	_build_environment()
 	_build_ocean()
 	_build_land()
@@ -160,7 +162,7 @@ static func nz(x: float, z: float) -> float:
 static func land_h(x: float, z: float) -> float:
 	var sx := x + land_seed
 	var inland := (SHORE - z) + nz(sx * 0.6, z) * 8.0 + sin(sx * 0.04) * 10.0
-	return -4.0 + inland * 0.38 + nz(sx, z) * 2.2
+	return -4.0 + inland * land_steep + nz(sx, z) * 2.2
 
 
 func hour() -> float:
@@ -282,6 +284,10 @@ func _build_land() -> void:
 	terrain_mat.set_shader_parameter("detail", _noise_tex(0.02, 512, false, 31, 5))
 	if region != "tenerife":
 		terrain_mat.set_shader_parameter("snow_line", 9999.0)
+	if region == "la_gomera":
+		terrain_mat.set_shader_parameter("green", 1.0)
+		terrain_mat.set_shader_parameter("scrub", Color(0.17, 0.3, 0.12))
+		terrain_mat.set_shader_parameter("earth", Color(0.3, 0.22, 0.15))
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var x0 := -350.0
@@ -315,6 +321,9 @@ func _build_land() -> void:
 
 	if region == "gran_canaria":
 		_build_gc_mountains()
+		return
+	if region == "la_gomera":
+		_build_lg_mountains()
 		return
 	# El Teide al fondo, con nieve en la cumbre
 	_mountain(Vector3(-90, -10, -330), 175.0, 190.0, 1)
@@ -360,6 +369,89 @@ func _mountain(center: Vector3, radius: float, height: float, seed_v: int) -> vo
 	add_child(mi)
 
 
+func _build_lg_mountains() -> void:
+	# Garajonay y los barrancos de La Gomera; al este, el Teide al otro lado del mar
+	_mountain(Vector3(-40, -10, -300), 170.0, 110.0, 7)
+	_mountain(Vector3(90, -10, -320), 150.0, 95.0, 8)
+	_mountain(Vector3(-200, -10, -290), 160.0, 100.0, 9)
+	var far_mat := ShaderMaterial.new()
+	far_mat.shader = TERRAIN_SHADER
+	far_mat.set_shader_parameter("detail", terrain_mat.get_shader_parameter("detail"))
+	far_mat.set_shader_parameter("snow_line", 190.0)
+	var keep := terrain_mat
+	terrain_mat = far_mat
+	_mountain(Vector3(760, -30, 120), 360.0, 300.0, 1)
+	terrain_mat = keep
+
+
+func _build_lg_port() -> void:
+	# San Sebastián de La Gomera: muelle, Torre del Conde, iglesia y casas
+	var stone := _mat(Color("6d665e"), 1.0)
+	var dock := BoxMesh.new()
+	dock.size = Vector3(5, 2.4, 26)
+	_mesh(dock, stone, Vector3(0, -0.2, -67))
+	var plank := _mat(Color("7a5636"), 0.9)
+	for i in 26:
+		var pb := BoxMesh.new()
+		pb.size = Vector3(4.8, 0.12, 0.95)
+		_mesh(pb, plank, Vector3(0, 1.06, -54.5 - i))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 23
+	for i in 18:
+		var w := 4.5 + rng.randf() * 2.5
+		var h := 3.6 + rng.randf() * 4.5
+		var x := -40.0 + i * 5.0 + rng.randf()
+		var z := -86.0 - rng.randf() * 6.0
+		if x > 14.0 and x < 26.0:
+			continue
+		Props.house(self, Vector3(x, max(land_h(x, z), 0.5), z), w, 6.0, h, rng)
+	# Torre del Conde: torre de piedra con almenas
+	var tx := 20.0
+	var tz := -92.0
+	var ty: float = max(land_h(tx, tz), 0.5)
+	var tower := _mat(Color("8a7a68"), 1.0)
+	_mesh(Props.box(Vector3(7, 16, 7)), tower, Vector3(tx, ty + 6.0, tz))
+	for cx in [-1, 1]:
+		for cz in [-1, 1]:
+			_mesh(Props.box(Vector3(1.0, 16.2, 1.0)), _mat(Color("6a5a4a"), 1.0), Vector3(tx + cx * 3.2, ty + 6.0, tz + cz * 3.2))
+	for i in 8:
+		var a := i * TAU / 8.0
+		_mesh(Props.box(Vector3(1.2, 1.2, 1.2)), tower, Vector3(tx + cos(a) * 3.0, ty + 14.6, tz + sin(a) * 3.0))
+	_mesh(Props.box(Vector3(1.2, 2.2, 0.2)), _mat(Color("2a1a10")), Vector3(tx, ty + 0.9, tz + 3.55))
+	Props.church(self, Vector3(-22, max(land_h(-22, -100), 0.5), -100))
+	port_light = OmniLight3D.new()
+	port_light.light_color = Color("ffb45a")
+	port_light.omni_range = 40
+	port_light.position = Vector3(1.6, 6.2, -72)
+	add_child(port_light)
+	var lamp_m := _mat(Color("ffdba0"))
+	lamp_m.emission_enabled = true
+	lamp_m.emission = Color("ffb45a")
+	lamp_m.emission_energy_multiplier = 3.0
+	_mesh(Props.cyl(0.08, 0.1, 6.0, 6), _mat(Color("222222")), Vector3(1.6, 3.5, -72))
+	var gl := SphereMesh.new()
+	gl.radius = 0.4
+	gl.height = 0.8
+	_mesh(gl, lamp_m, Vector3(1.6, 6.6, -72))
+
+
+func _laurel_mesh() -> ArrayMesh:
+	## Árbol de laurisilva: tronco y copa densa de verdes oscuros.
+	var st := SurfaceTool.new()
+	var trunk := Props.cyl(0.18, 0.28, 3.0, 6)
+	st.append_from(trunk, 0, Transform3D(Basis(), Vector3(0, 1.5, 0)))
+	var leaf := SphereMesh.new()
+	leaf.radial_segments = 8
+	leaf.rings = 5
+	for i in 6:
+		var r := 1.3 + 0.25 * (i % 3)
+		leaf.radius = r
+		leaf.height = r * 1.6
+		var off := Vector3(cos(i * 1.7) * 0.9, 3.4 + (i % 2) * 0.9, sin(i * 1.7) * 0.9)
+		st.append_from(leaf, 0, Transform3D(Basis(), off))
+	return st.commit()
+
+
 func _build_vegetation() -> void:
 	# Palmeras canarias, cardones y tabaibas repartidos por la costa.
 	var rng := RandomNumberGenerator.new()
@@ -397,6 +489,27 @@ func _build_vegetation() -> void:
 	Props.scatter(self, Props.cardon_mesh(), cm, cardones)
 	var sm := Props.mat(Color("6f7f3a"), 0.95)
 	Props.scatter(self, Props.shrub_mesh(), sm, shrubs)
+	if region == "la_gomera":
+		# laurisilva en lo alto y palmerales en los barrancos
+		var laurels: Array = []
+		var more_palms: Array = []
+		var r2 := RandomNumberGenerator.new()
+		r2.seed = 77
+		for i in 6000:
+			var x := r2.randf_range(-330, 330)
+			var z := r2.randf_range(-310, -70)
+			var h := land_h(x, z)
+			if h < 1.0 or h > 40.0:
+				continue
+			if abs(x) < 45.0 and z > -110.0:
+				continue
+			var basis := Basis(Vector3.UP, r2.randf() * TAU)
+			if h > 14.0 and laurels.size() < 420:
+				laurels.append(Transform3D(basis.scaled(Vector3.ONE * r2.randf_range(0.8, 1.6)), Vector3(x, h - 0.3, z)))
+			elif h < 9.0 and more_palms.size() < 90 and r2.randf() < 0.25:
+				more_palms.append(Transform3D(basis.scaled(Vector3.ONE * r2.randf_range(0.8, 1.2)), Vector3(x, h - 0.2, z)))
+		Props.scatter(self, _laurel_mesh(), Props.mat(Color("2c4a22"), 0.9), laurels)
+		Props.scatter(self, Props.palm_mesh(), Props.vc_mat(0.85), more_palms)
 
 
 func _build_gc_mountains() -> void:
@@ -453,6 +566,9 @@ func _build_gc_port() -> void:
 func _build_port() -> void:
 	if region == "gran_canaria":
 		_build_gc_port()
+		return
+	if region == "la_gomera":
+		_build_lg_port()
 		return
 	# Muelle: base de piedra, tablones de madera y bolardos
 	var stone := _mat(Color("6d665e"), 1.0)
@@ -627,7 +743,7 @@ func _apply_light() -> void:
 	sky_mat.set_shader_parameter("daylight", l)
 	sky_mat.set_shader_parameter("time_s", t)
 	sky_mat.set_shader_parameter("sun_tint", Color(1.0, 0.92, 0.78).lerp(Color("ff9a50"), dusk_amt))
-	var cover := {"despejado": 0.35, "calima": 0.15, "lluvia": 0.9, "picada": 0.65}
+	var cover := {"despejado": 0.35, "calima": 0.15, "lluvia": 0.9, "picada": 0.65, "niebla": 0.85}
 	sky_mat.set_shader_parameter("cloud_cover", cover.get(weather.current if weather else "despejado", 0.35))
 	sky_mat.set_shader_parameter("cloud_tint", Color(1, 1, 1).lerp(Color(1.0, 0.75, 0.55), dusk_amt * 0.8).lerp(Color(0.6, 0.62, 0.66), float(wb.get("rain", 0.0)) * 0.7))
 	ocean_mat.set_shader_parameter("sky_color", hor.lerp(top_c, 0.35))
@@ -1081,6 +1197,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if k in [KEY_E, KEY_SPACE, KEY_ENTER]:
 			quest.next_line()
 		return
+	if mode == "silbo":
+		quest.silbo_key(k)
+		return
 	if mode == "fish":
 		if k == KEY_SPACE or k == KEY_E:
 			strike()
@@ -1104,6 +1223,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			ui.toggle_journal()
 		KEY_M:
 			ui.toggle_map()
+		KEY_G:
+			quest.whistle()
 		KEY_N:
 			gear.drop_nasa()
 		KEY_R:

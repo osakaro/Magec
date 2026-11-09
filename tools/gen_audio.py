@@ -121,7 +121,7 @@ def mtof(m):
     return 440 * 2 ** ((m - 69) / 12)
 
 
-def reverb(x, secs=2.6, mix=0.35):
+def reverb(x, secs=2.6, mix=0.35, loop=True):
     """Reverberación por convolución con una cola de ruido que decae."""
     n = int(SR * secs)
     ir = rng.normal(0, 1, n) * np.exp(-np.arange(n) / (SR * secs / 6))
@@ -129,6 +129,10 @@ def reverb(x, secs=2.6, mix=0.35):
     ir /= np.sqrt(np.sum(ir ** 2))
     size = 1 << int(np.ceil(np.log2(len(x) + n)))
     wet = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[: len(x) + n]
+    if not loop:
+        # efecto suelto: se alarga para que se oiga la cola del eco
+        dry = np.concatenate([x, np.zeros(n)])
+        return dry * (1 - mix) + norm(wet, np.max(np.abs(x)) or 1) * mix
     # la cola vuelve al principio para que el bucle sea continuo
     tail = wet[len(x):]
     wet = wet[: len(x)].copy()
@@ -349,6 +353,40 @@ def gull():
     return norm(x, 0.3)
 
 
+def _whistle(f0, f1, sec, vib=6.0):
+    """Silbido humano: tono puro con deslizamiento, vibrato y aire."""
+    tt = t(sec)
+    f = f0 + (f1 - f0) * (tt / sec) ** 0.7
+    f = f * (1 + 0.012 * np.sin(2 * np.pi * vib * tt))
+    x = np.sin(np.cumsum(2 * np.pi * f / SR))
+    x += 0.06 * highpass(rng.normal(0, 1, len(tt)), 3000)
+    e = np.minimum(tt / 0.05, 1) * np.minimum((sec - tt) / 0.08, 1)
+    return x * np.clip(e, 0, 1)
+
+
+def whistle_hi():
+    # silbo agudo (vocal "i")
+    return norm(reverb(_whistle(1900, 2300, 0.45), 1.2, 0.25, loop=False), 0.5)
+
+
+def whistle_lo():
+    # silbo grave (vocal "a")
+    return norm(reverb(_whistle(1250, 1050, 0.45), 1.2, 0.25, loop=False), 0.5)
+
+
+def whistle_call():
+    # la llamada de Acorán: sube, baja y vuelve a subir
+    x = np.concatenate([_whistle(1300, 2100, 0.35), np.zeros(int(SR * 0.05)), _whistle(2100, 1200, 0.3), np.zeros(int(SR * 0.05)), _whistle(1300, 2300, 0.5)])
+    return norm(reverb(x, 2.5, 0.35, loop=False), 0.6)
+
+
+def whistle_answer():
+    # la respuesta lejana: dos tonos, con mucho eco de barranco
+    x = np.concatenate([_whistle(2000, 2200, 0.4), np.zeros(int(SR * 0.08)), _whistle(1500, 1200, 0.55)])
+    x = lowpass(x, 3000)
+    return norm(reverb(x, 3.5, 0.6, loop=False), 0.45)
+
+
 def stone():
     # La Piedra de Magec al encenderse: acorde que se abre.
     tt = t(4.0)
@@ -362,5 +400,6 @@ def stone():
 if __name__ == "__main__":
     for fn in (ocean, wind, engine, heartbeat, day_music, night_drone,
                rumble, splash, catch, mutant, hit, miss, knock, lamp, stone,
-               rain, growl, crack, dolphin, gull, menu_music):
+               rain, growl, crack, dolphin, gull, menu_music,
+               whistle_hi, whistle_lo, whistle_call, whistle_answer):
         save(fn.__name__, fn())

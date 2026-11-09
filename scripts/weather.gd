@@ -8,9 +8,12 @@ const STATES := {
 	"despejado": {"name": "Despejado", "fog": 0.0, "tint": Color(0, 0, 0, 0), "amp": 1.0, "rain": 0.0, "sun": 1.0, "wind": 0.0},
 	"calima": {"name": "Calima", "fog": 0.018, "tint": Color(0.82, 0.58, 0.34, 0.75), "amp": 0.8, "rain": 0.0, "sun": 0.7, "wind": 0.15},
 	"lluvia": {"name": "Lluvia", "fog": 0.01, "tint": Color(0.35, 0.4, 0.45, 0.6), "amp": 1.45, "rain": 1.0, "sun": 0.45, "wind": 0.3},
+	"niebla": {"name": "Niebla", "fog": 0.026, "tint": Color(0.78, 0.8, 0.82, 0.85), "amp": 0.85, "rain": 0.0, "sun": 0.55, "wind": 0.1},
 	"picada": {"name": "Mar picada", "fog": 0.004, "tint": Color(0.45, 0.5, 0.55, 0.35), "amp": 2.1, "rain": 0.0, "sun": 0.8, "wind": 0.45},
 }
-const WEIGHTS := {"despejado": 50, "calima": 16, "lluvia": 18, "picada": 16}
+const WEIGHTS := {"despejado": 50, "calima": 16, "lluvia": 18, "picada": 16, "niebla": 0}
+# En La Gomera la niebla manda
+const WEIGHTS_LG := {"despejado": 25, "calima": 0, "lluvia": 10, "picada": 10, "niebla": 55}
 
 var current := "despejado"
 var next_change := 10.0 * 60.0
@@ -49,12 +52,13 @@ func _ready() -> void:
 
 
 func _pick() -> String:
+	var wts: Dictionary = WEIGHTS_LG if main.region == "la_gomera" else WEIGHTS
 	var total := 0
-	for k in WEIGHTS:
-		total += WEIGHTS[k]
+	for k in wts:
+		total += wts[k]
 	var r := randi() % total
-	for k in WEIGHTS:
-		r -= WEIGHTS[k]
+	for k in wts:
+		r -= wts[k]
 		if r < 0:
 			return k
 	return "despejado"
@@ -80,6 +84,7 @@ func _process(dt: float) -> void:
 				"calima": "Llega la calima. El aire se vuelve naranja y no se ve nada a lo lejos.",
 				"lluvia": "Empieza a llover sobre el mar.",
 				"picada": "Se levanta el viento. La mar se pica.",
+				"niebla": "Baja la niebla de los barrancos. No se ve ni la proa.",
 			}
 			main.ui.toast(msgs[current])
 	var st: Dictionary = STATES[current]

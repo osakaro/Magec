@@ -20,12 +20,14 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 | I | Bodega |
 | C | Cuaderno de especies |
 | M | Mapa (carta de navegación) |
+| G | Silbar (silbo gomero, tras aprenderlo en La Gomera) |
 | N | Echar nasa |
 | R | Echar / recoger la red |
 | Esc | Pausa / recoger sedal |
 
 ## Qué hay en esta versión
 
+- La Gomera: San Sebastián con la Torre del Conde, laurisilva, niebla, el Teide en el horizonte; Isidro te enseña el silbo (minijuego), buscas a Tomasín en la niebla siguiendo el eco y consigues la tercera piedra. El silbo espanta al Tibicena.
 - Brújula con flecha al objetivo y mapa de Canarias (M). Giro del barco suave, con inercia y escora.
 - Ilustraciones propias de las 18 especies y de sus mutantes.
 - Portada con una carta náutica antigua de las Islas Canarias.

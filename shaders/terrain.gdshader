@@ -6,6 +6,7 @@ render_mode diffuse_burley;
 
 uniform sampler2D detail : filter_linear_mipmap, repeat_enable;
 uniform float snow_line = 115.0;
+uniform float green = 0.0;   // 0 = isla seca, 1 = isla verde (La Gomera)
 uniform vec3 sand : source_color = vec3(0.10, 0.09, 0.085);
 uniform vec3 basalt : source_color = vec3(0.16, 0.13, 0.115);
 uniform vec3 earth : source_color = vec3(0.36, 0.24, 0.16);
@@ -25,7 +26,7 @@ void fragment() {
 	float n = texture(detail, wpos.xz * 0.012).r;
 	float n2 = texture(detail, wpos.xz * 0.09).r;
 	float n3 = texture(detail, wpos.xz * 0.4).r;
-	vec3 c = mix(earth, scrub, smoothstep(0.48, 0.62, n) * (1.0 - smoothstep(0.15, 0.4, slope)));
+	vec3 c = mix(earth, scrub, smoothstep(0.48 - green * 0.32, 0.62 - green * 0.25, n) * (1.0 - smoothstep(0.15 + green * 0.25, 0.4 + green * 0.3, slope)));
 	c = mix(c, earth * 0.75, smoothstep(0.55, 0.7, n2) * 0.5);
 	c = mix(c, basalt, smoothstep(0.28, 0.55, slope + (n2 - 0.5) * 0.3));
 	// coladas de lava (malpaís) oscuras

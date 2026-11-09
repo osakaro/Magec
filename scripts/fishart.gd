@@ -21,6 +21,12 @@ const STYLE := {
 	"pargo": {"top": "d27c62", "belly": "f3c9b4", "h": 0.44, "hump": 0.3, "pattern": "spots", "pc": "6fa7d8", "fin": "e0957a", "tail": "fork", "eye": 1.0},
 	"bocinegro": {"top": "c9705c", "belly": "f0c2ae", "h": 0.43, "hump": 0.2, "pattern": "vbars", "pc": "a95646", "fin": "d98a74", "tail": "fork", "eye": 1.0, "darkmouth": true},
 	"dorada": {"top": "8e9a9e", "belly": "eef0ec", "h": 0.44, "pattern": "line", "pc": "556066", "fin": "7d878a", "tail": "fork", "eye": 1.0, "brow": true},
+	"seifia": {"top": "9aa09c", "belly": "eceee8", "h": 0.44, "pattern": "line", "pc": "6a7270", "fin": "777e7c", "tail": "fork", "eye": 1.1, "tailspot": true, "napespot": true},
+	"chopa": {"top": "6f7774", "belly": "d6d8cc", "h": 0.48, "pattern": "hstripes", "pc": "c9b46a", "fin": "5f6764", "tail": "fork", "eye": 1.0},
+	"fula": {"top": "26221d", "belly": "3e362c", "h": 0.5, "pattern": "none", "pc": "000000", "fin": "1e1a16", "tail": "fork", "eye": 1.2, "eyering": "3a8ad8"},
+	"pejeperro": {"top": "c63f2a", "belly": "eaa45a", "h": 0.4, "hump": 0.15, "pattern": "spots", "pc": "f2d050", "fin": "d0603a", "tail": "round", "eye": 0.9, "snout": true},
+	"cabrilla": {"top": "8a5a38", "belly": "e2c8a0", "h": 0.36, "pattern": "vbars", "pc": "5a3420", "fin": "a67250", "tail": "round", "eye": 1.1, "orange_lines": true},
+	"bicuda": {"top": "7d8c94", "belly": "e6ecee", "h": 0.18, "pattern": "vbars", "pc": "4f5c64", "fin": "9aa8ae", "tail": "fork", "eye": 0.9, "bigmouth": true, "teeth": true},
 	"morena": {"kind": "eel", "top": "5d4a22", "belly": "a48a4a", "pattern": "spots", "pc": "d9c27a"},
 	"pulpo": {"kind": "octopus", "top": "a6584d", "belly": "d9938a"},
 	"calamar": {"kind": "squid", "top": "d9a3a0", "belly": "f3d8d2"},
@@ -90,6 +96,9 @@ static func _fish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary
 		var hb: float = H * 0.5 * prof * taper * 0.92
 		upper.append(Vector2(x0 + u * L, cy - ht))
 		lower.append(Vector2(x0 + u * L, cy + hb))
+	if st.get("snout", false):
+		upper[0] = upper[0] + Vector2(-L * 0.06, H * 0.12)
+		lower[0] = lower[0] + Vector2(-L * 0.06, -H * 0.08)
 	var tail_x := x0 + L
 	var tail_h := H * 0.62
 	var wig: float = sin(anim * 6.0) * H * 0.16 if anim >= 0.0 else 0.0
@@ -197,6 +206,20 @@ static func _fish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary
 		ci.draw_circle(Vector2(x0 + L * 0.22, cy - H * 0.05), er * 0.7, Color(0.1, 0.1, 0.12, 0.6))
 	if st.get("tailspot", false):
 		ci.draw_circle(Vector2(tail_x - L * 0.04, cy), H * 0.1, Color(0.1, 0.1, 0.1, 0.9))
+	if st.get("napespot", false):
+		ci.draw_line(upper[6], upper[6].lerp(lower[6], 0.55), Color(0.1, 0.1, 0.1, 0.8), H * 0.09, true)
+	if st.has("eyering"):
+		ci.draw_arc(ep, er * 1.3, 0, TAU, 16, Color(st["eyering"]) if not mut else Color("36d7ff"), 1.6, true)
+	if st.get("orange_lines", false):
+		for f in [0.55, 0.7]:
+			var pts := PackedVector2Array()
+			for i in range(3, upper.size() - 3):
+				pts.append(upper[i].lerp(lower[i], f))
+			ci.draw_polyline(pts, Color("e08a3a"), max(1.0, H * 0.035), true)
+	if st.get("teeth", false):
+		for k in 4:
+			var tp := Vector2(x0 + 2 + k * L * 0.018, cy + H * 0.08)
+			ci.draw_line(tp, tp + Vector2(0, H * 0.12), Color("f2eee0"), 1.0)
 	if mut:
 		_mutation(ci, key, upper, lower, cy, H, L, x0, ep, er, top)
 
@@ -313,6 +336,25 @@ static func _mutation(ci: CanvasItem, key: String, upper: PackedVector2Array, lo
 			ci.draw_colored_polygon(PackedVector2Array([upper[8], upper[16], lower[16], lower[8]]), Color(1.0, 0.3, 0.1, 0.25))
 		"salema":
 			ci.draw_string(ThemeDB.fallback_font, Vector2(x0 - 6, cy - H * 0.6), "♪", HORIZONTAL_ALIGNMENT_LEFT, -1, int(max(10.0, H * 0.4)), Color("2a211b"))
+		"fula":
+			ci.draw_circle(ep, er * 0.75, Color("36d7ff"))
+			ci.draw_circle(ep, er * 1.6, Color(0.2, 0.8, 1.0, 0.25))
+		"cabrilla":
+			for sx in [0.08, 0.15]:
+				var hb := upper[2].lerp(upper[4], sx * 4.0)
+				ci.draw_colored_polygon(PackedVector2Array([hb + Vector2(-3, 0), hb + Vector2(-6, -H * 0.35), hb + Vector2(3, 0)]), Color("e8dcc0"))
+		"seifia":
+			var hx := Vector2(x0, cy)
+			ci.draw_colored_polygon(PackedVector2Array([hx, hx + Vector2(-L * 0.16, -H * 0.4), hx + Vector2(-L * 0.1, 0), hx + Vector2(-L * 0.16, H * 0.4)]), top.lightened(0.1))
+		"chopa":
+			for k in 6:
+				var i := 6 + k * 2
+				ci.draw_circle(upper[i].lerp(lower[i], 0.5), H * 0.08, Color(0.08, 0.06, 0.05, 0.6))
+		"pejeperro":
+			var m := Vector2(x0 - 2, cy + H * 0.04)
+			ci.draw_arc(m, H * 0.12, 1.0, 5.3, 8, Color("2a0c0a"), 2.0, true)
+		"bicuda":
+			ci.draw_colored_polygon(PackedVector2Array([upper[3], upper[18], lower[18], lower[3]]), Color(0.85, 0.92, 1.0, 0.45))
 		"abade", "cherne", "alfonsino":
 			pass
 	# todos los mutantes: púas sobre el lomo

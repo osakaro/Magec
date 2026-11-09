@@ -32,7 +32,8 @@ Lista de pasos a seguir, en orden de prioridad. Se marca con [x] lo que ya está
 - [x] Guayota, primer jefe (Tenerife): tres fuegos de Magec, lava y agua hirviendo
 - [x] Más personajes en Güímar: Pancho el Viejo (misión de la vieja) y Nieves la pescadera
 - [x] Portada con carta náutica de Canarias
-- [ ] Resto de islas (La Gomera, Lanzarote, La Graciosa, Fuerteventura, La Palma, El Hierro)
+- [x] La Gomera: niebla, silbo gomero (Isidro), Tomasín perdido, tercera piedra, 6 peces nuevos
+- [ ] Resto de islas (Lanzarote, La Graciosa, Fuerteventura, La Palma, El Hierro)
 - [ ] San Borondón, Aridane y los tres finales (el final malo depende de los mutantes vendidos a Baltasar)
 
 ## 5 · Aspecto
