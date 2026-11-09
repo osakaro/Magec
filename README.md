@@ -23,6 +23,8 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 ## Qué hay en esta versión
 
 - Cinemática de inicio (se salta con Esc o Espacio): Aridane y San Borondón, treinta años después, el temblor y el farol de Chaxiraxi.
+- Sonido sintetizado: mar, viento, motor, timple de día, música inquietante de noche, latido con el miedo, golpes y efectos (`tools/gen_audio.py` los regenera).
+- Misión 1 «La primera Piedra»: Chaxiraxi junto a las Pirámides de Güímar, diálogos, la Piedra de Magec de noche en el fondo y mejora del farol.
 - Costa de Güímar con el Teide al fondo, muelle y casas.
 - Mar con olas (shader), ciclo de día y noche; el tiempo pasa al navegar o pescar.
 - 12 puntos de pesca en 3 zonas (orilla, aguas medias, fondo).

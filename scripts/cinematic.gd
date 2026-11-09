@@ -45,6 +45,7 @@ const CARDS := {
 
 var time := 0.0
 var done := false
+var rumbled := false
 var aridane: Dictionary
 var island: MeshInstance3D
 var island_mat: StandardMaterial3D
@@ -172,6 +173,9 @@ func _shot(name: String, lt: float, dur: float) -> void:
 			main.ui.cine_set(1.0 - clamp(lt / 1.5, 0.0, 1.0), "", 0.0, sub[0], sub[1], 0.0)
 
 		"quake":
+			if not rumbled:
+				rumbled = true
+				main.audio.sfx("rumble", 2.0)
 			main.game_time = 6.0 * 60.0 + 50.0
 			var k: float = sin(PI * clamp(p / 0.6, 0.0, 1.0))
 			main.amp = 1.0 + k * 2.6

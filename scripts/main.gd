@@ -6,6 +6,8 @@ const Data = preload("res://scripts/data.gd")
 const UI = preload("res://scripts/ui.gd")
 const OCEAN_SHADER = preload("res://shaders/ocean.gdshader")
 const Cinematic = preload("res://scripts/cinematic.gd")
+const Audio = preload("res://scripts/audio.gd")
+const Quest = preload("res://scripts/quest.gd")
 
 # Altura de las olas (la cinemática la sube durante el temblor)
 static var amp := 1.0
@@ -23,6 +25,7 @@ var money := 0
 var debt := 500
 var panic := 0.0
 var lamp_on := false
+var lamp_mult := 1.0   # mejora del farol (misión 1)
 var speed_lvl := 0
 var rows := 3
 var cols := 6
@@ -56,6 +59,8 @@ var eyes: Array = []
 var eye_mat: StandardMaterial3D
 var ui
 var cine
+var audio
+var quest
 
 
 func _ready() -> void:
@@ -75,6 +80,12 @@ func _ready() -> void:
 	ui = UI.new()
 	ui.main = self
 	add_child(ui)
+	audio = Audio.new()
+	audio.main = self
+	add_child(audio)
+	quest = Quest.new()
+	quest.main = self
+	add_child(quest)
 	cine = Cinematic.new()
 	cine.main = self
 	add_child(cine)
@@ -426,6 +437,8 @@ func near_port() -> bool:
 func act() -> void:
 	if mode != "sail":
 		return
+	if quest.try_interact():
+		return
 	if near_port():
 		mode = "port"
 		bv = 0.0
@@ -440,6 +453,7 @@ func act() -> void:
 
 func toggle_lamp() -> void:
 	lamp_on = not lamp_on
+	audio.sfx("lamp", -6.0, 1.0 if lamp_on else 0.8)
 	ui.toast("Farol de Magec encendido." if lamp_on else "Farol apagado.")
 
 
@@ -455,8 +469,22 @@ func start_fishing(s: Dictionary) -> void:
 	_new_zone()
 	mode = "fish"
 	bv = 0.0
+	audio.sfx("splash")
 	advance(15)
 	ui.open_fishing("Algo muerde en la oscuridad…" if night else "Pescando en " + Data.ZONES[s["zone"]]["name"].to_lower())
+
+
+func start_special_fishing() -> void:
+	fishing = {
+		"spot": null, "key": "", "mut": true, "special": true, "p": 0.0, "dir": 1.0,
+		"speed": 1.45, "w": 0.09, "zs": 0.0, "hits": 0, "miss": 0,
+	}
+	_new_zone()
+	mode = "fish"
+	bv = 0.0
+	audio.sfx("splash", 0.0, 0.7)
+	advance(15)
+	ui.open_fishing("¡Algo muy pesado tira del sedal!")
 
 
 func _new_zone() -> void:
@@ -470,9 +498,11 @@ func strike() -> void:
 	if p >= fishing["zs"] and p <= fishing["zs"] + fishing["w"]:
 		fishing["hits"] += 1
 		fishing["speed"] *= 1.12
+		audio.sfx("hit", -4.0, 1.0 + fishing["hits"] * 0.12)
 		_new_zone()
 	else:
 		fishing["miss"] += 1
+		audio.sfx("miss", -4.0)
 	if fishing["hits"] >= 3:
 		end_fishing(true)
 	elif fishing["miss"] >= 3:
@@ -481,12 +511,18 @@ func strike() -> void:
 
 func end_fishing(ok: bool, cancel := false) -> void:
 	ui.close_fishing()
+	if ok and fishing.get("special", false):
+		fishing = {}
+		mode = "sail"
+		quest.got_stone()
+		return
 	if ok:
 		fishing["spot"]["left"] -= 1
 		pending = {"key": fishing["key"], "mut": fishing["mut"]}
 		mode = "catch"
 		if pending["mut"]:
 			panic = min(100.0, panic + 10.0)
+		audio.sfx("mutant" if pending["mut"] else "catch", -2.0)
 		ui.open_catch(pending["key"], pending["mut"], find_slot(Data.FISH[pending["key"]]["shape"]) != null)
 	else:
 		mode = "sail"
@@ -628,6 +664,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	var k: int = event.physical_keycode
+	if mode == "talk":
+		if k in [KEY_E, KEY_SPACE, KEY_ENTER]:
+			quest.next_line()
+		return
 	if mode == "fish":
 		if k == KEY_SPACE or k == KEY_E:
 			strike()
@@ -739,12 +779,13 @@ func _update_panic(dt: float) -> void:
 		panic = max(0.0, panic - dt * 12.0)
 	elif night:
 		var far: float = max(0.0, bz + 40.0) / 120.0
-		panic = min(100.0, panic + dt * ((0.8 if lamp_on else 3.2) + far * 2.2))
+		panic = min(100.0, panic + dt * ((0.8 * lamp_mult if lamp_on else 3.2) + far * 2.2))
 	else:
 		panic = max(0.0, panic - dt * 3.0)
 	if panic >= 100.0:
 		panic = 55.0
 		bv = -4.0
+		audio.sfx("knock")
 		if items.size() > 0:
 			var i := randi() % items.size()
 			var lost: Dictionary = items[i]

@@ -25,6 +25,10 @@ var toast_time := 0.0
 var vignette: ColorRect
 
 var intro: Control
+var objective_lbl: Label
+var dlg_panel: PanelContainer
+var dlg_name: Label
+var dlg_text: Label
 var cine_black: ColorRect
 var cine_card: Label
 var cine_sub: Label
@@ -224,6 +228,7 @@ func _ready() -> void:
 	_build_catch(root)
 	_build_hold(root)
 	_build_port(root)
+	_build_dialogue(root)
 	_build_intro(root)
 
 
@@ -325,6 +330,14 @@ func _build_hud(root: Control) -> void:
 	debt_lbl = _label("Deuda del barco: 500 €", 13, C_SALT)
 	c3.add_child(money_lbl)
 	c3.add_child(debt_lbl)
+
+	objective_lbl = _label("", 16, C_FOAM)
+	objective_lbl.position = Vector2(16, 118)
+	objective_lbl.custom_minimum_size = Vector2(460, 0)
+	objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	objective_lbl.add_theme_constant_override("outline_size", 6)
+	objective_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	root.add_child(objective_lbl)
 
 	hint_lbl = RichTextLabel.new()
 	hint_lbl.bbcode_enabled = true
@@ -452,6 +465,43 @@ func _build_port(root: Control) -> void:
 		main.leave_port()))
 
 
+func _build_dialogue(root: Control) -> void:
+	dlg_panel = PanelContainer.new()
+	dlg_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	dlg_panel.custom_minimum_size = Vector2(820, 0)
+	dlg_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dlg_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	dlg_panel.offset_bottom = -60
+	dlg_panel.visible = false
+	root.add_child(dlg_panel)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	dlg_panel.add_child(vb)
+	dlg_name = _label("", 20, C_SUN)
+	vb.add_child(dlg_name)
+	dlg_text = _label("", 21, C_FOAM)
+	dlg_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(dlg_text)
+	var cont := _label("E / Espacio · continuar", 13, C_SALT)
+	cont.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	vb.add_child(cont)
+	dlg_panel.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed:
+			main.quest.next_line())
+
+
+func show_dialogue(who: String, text: String, _i: int, _n: int) -> void:
+	hold_panel.visible = false
+	dlg_name.text = who.to_upper()
+	dlg_name.add_theme_color_override("font_color", C_SUN if who == "Chaxiraxi" else Color("8fc3d6"))
+	dlg_text.text = text
+	dlg_panel.visible = true
+
+
+func close_dialogue() -> void:
+	dlg_panel.visible = false
+
+
 func _build_intro(root: Control) -> void:
 	# Capa de la cinemática: negro, rótulos, subtítulos y título.
 	intro = Control.new()
@@ -543,8 +593,12 @@ func update_hud() -> void:
 	toast_time -= get_process_delta_time()
 	toast_lbl.modulate.a = clamp(toast_time / 0.4, 0.0, 1.0)
 
+	objective_lbl.text = "" if main.mode == "cinematic" else "◆ " + main.quest.objective()
 	var hint := ""
-	if main.mode == "sail":
+	var qh: String = main.quest.hint() if main.mode == "sail" else ""
+	if qh != "":
+		hint = qh
+	elif main.mode == "sail":
 		if main.near_port():
 			hint = "[center][color=#f2b33d]E[/color] · Entrar al puerto de Güímar[/center]"
 		else:
