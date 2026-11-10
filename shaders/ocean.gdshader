@@ -85,13 +85,14 @@ void fragment() {
 		if (p.w <= 0.2) { continue; }
 		float age = p.z;
 		float d = length(wpos.xz - p.xy);
-		float spread = 1.3 + age * 1.6;
-		float strength = clamp(p.w / 9.0, 0.0, 1.0) * (1.0 - smoothstep(0.0, 6.0, age));
-		float core = exp(-d * d / (spread * spread * 0.6));
-		float edge = exp(-pow((d - spread) / (0.7 + age * 0.3), 2.0));
-		wk += strength * (core * 0.6 + edge * 0.8);
+		float spread = 1.0 + age * 1.5;
+		float strength = clamp(p.w / 10.0, 0.0, 1.0) * (1.0 - smoothstep(0.0, 5.0, age));
+		float core = exp(-d * d / (spread * spread * 0.25)) * (1.0 - smoothstep(0.0, 1.5, age));
+		float edge = exp(-pow((d - spread) / (0.35 + age * 0.15), 2.0));
+		wk = max(wk, strength * (core * 0.5 + edge * 0.6));
 	}
-	wk = clamp(wk, 0.0, 1.0) * (0.55 + fn2 * 0.7);
+	// espuma rota: solo donde el ruido lo permite, para que se vean los hilos de la estela
+	wk *= smoothstep(0.35, 0.75, fn2 + fn * 0.3);
 	float foam = clamp(shore * (0.55 + fn2 * 0.6) + edge_line * 0.5 + crest_foam * 0.6 + wk, 0.0, 1.0);
 	foam *= step(0.4, fn2 + shore * 0.6 + wk);
 	vec3 foam_col = vec3(0.92, 0.95, 0.95) * (0.15 + 0.85 * daylight);
