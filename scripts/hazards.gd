@@ -66,7 +66,14 @@ func _build_rocks() -> void:
 		var g := Node3D.new()
 		g.position = Vector3(x, 0, z)
 		main.add_child(g)
-		if not sunk:
+		var Props = load("res://scripts/props.gd")
+		if not sunk and Props.model("boulder_01") != null:
+			# peñascos fotogramétricos, oscurecidos como el basalto canario
+			for k in rng.randi_range(1, 2):
+				var nm: String = ["boulder_01", "namaqualand_boulder_03"][rng.randi() % 2]
+				var b: Node3D = Props.place(g, nm, Vector3(rng.randf_range(-1, 1) * r * 0.3, -r * 0.35, rng.randf_range(-1, 1) * r * 0.3),
+					r * (1.6 if nm == "boulder_01" else 1.1) * rng.randf_range(0.8, 1.1), rng.randf() * TAU, Color(0.42, 0.4, 0.4))
+		elif not sunk:
 			for k in rng.randi_range(1, 3):
 				var sm := SphereMesh.new()
 				sm.radius = 1.0

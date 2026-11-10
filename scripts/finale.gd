@@ -94,6 +94,7 @@ func _build_island() -> void:
 	gm.shader = load("res://shaders/terrain.gdshader")
 	gm.set_shader_parameter("detail", keep.get_shader_parameter("detail"))
 	gm.set_shader_parameter("snow_line", 9999.0)
+	main.apply_terrain_tex(gm)
 	gm.set_shader_parameter("green", 1.0)
 	gm.set_shader_parameter("scrub", Color(0.2, 0.4, 0.18))
 	gm.set_shader_parameter("earth", Color(0.25, 0.3, 0.2))

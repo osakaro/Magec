@@ -39,6 +39,15 @@ func _make_buoy(x: float, z: float) -> Node3D:
 	var g := Node3D.new()
 	g.position = Vector3(x, 0, z)
 	main.add_child(g)
+	var bm: Node3D = load("res://scripts/props.gd").place(g, "ocean_buoy", Vector3(0, -0.6, 0), 1.3)
+	if bm:
+		var lb := OmniLight3D.new()
+		lb.light_color = Color("ff6a3a")
+		lb.light_energy = 0.8
+		lb.omni_range = 6
+		lb.position.y = 3.0
+		g.add_child(lb)
+		return g
 	var red := StandardMaterial3D.new()
 	red.albedo_color = Color("c43b2f")
 	var white := StandardMaterial3D.new()

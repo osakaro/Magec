@@ -2,6 +2,119 @@ extends RefCounted
 ## Modelos 3D generados por código: barquillo canario, palmera canaria, cardón,
 ## tabaiba, casas canarias, iglesia, escollera, bolardos.
 
+static var _tex_cache := {}
+
+
+static func tex(name: String, map: String) -> Texture2D:
+	var key := name + "/" + map
+	if not _tex_cache.has(key):
+		var path := "res://assets/textures/%s/%s.jpg" % [name, map]
+		_tex_cache[key] = load(path) if ResourceLoader.exists(path) else null
+	return _tex_cache[key]
+
+
+static func tex_mat(name: String, tint: Color, scale := 0.25, rough := 0.9) -> StandardMaterial3D:
+	## Material con textura fotográfica proyectada en el mundo (sin coordenadas UV).
+	var m := StandardMaterial3D.new()
+	m.albedo_color = tint
+	m.roughness = rough
+	var a := tex(name, "albedo")
+	if a:
+		m.albedo_texture = a
+		m.uv1_triplanar = true
+		m.uv1_world_triplanar = true
+		m.uv1_scale = Vector3.ONE * scale
+		var n := tex(name, "normal")
+		if n:
+			m.normal_enabled = true
+			m.normal_texture = n
+			m.normal_scale = 1.0
+	return m
+
+
+static var _model_cache := {}
+
+
+static func model(name: String) -> Node3D:
+	## Instancia un modelo de Poly Haven (o null si no está descargado).
+	var path := "res://assets/models/%s/%s.gltf" % [name, name]
+	if not _model_cache.has(path):
+		_model_cache[path] = load(path) if ResourceLoader.exists(path) else null
+	var sc: PackedScene = _model_cache[path]
+	return sc.instantiate() if sc else null
+
+
+static func place(parent: Node, name: String, pos: Vector3, scl := 1.0, rot_y := 0.0, tint := Color(1, 1, 1, 1)) -> Node3D:
+	var m := model(name)
+	if m == null:
+		return null
+	parent.add_child(m)
+	m.position = pos
+	m.rotation.y = rot_y
+	m.scale = Vector3.ONE * scl
+	if tint != Color(1, 1, 1, 1):
+		tint_model(m, tint)
+	return m
+
+
+static func tint_model(root: Node, tint: Color, emission := Color(0, 0, 0, 0), alpha := 1.0) -> void:
+	## Copia los materiales del modelo multiplicando su color (p. ej. roca más oscura).
+	var stack: Array = [root]
+	while stack.size() > 0:
+		var n = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		if n is MeshInstance3D and n.mesh:
+			for si in n.mesh.get_surface_count():
+				var base: Material = n.get_active_material(si)
+				var m: StandardMaterial3D = (base.duplicate() if base is StandardMaterial3D else StandardMaterial3D.new())
+				m.albedo_color = m.albedo_color * tint
+				if alpha < 1.0:
+					m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+					m.albedo_color.a = alpha
+					m.cull_mode = BaseMaterial3D.CULL_DISABLED
+				if emission.a > 0.0:
+					m.emission_enabled = true
+					m.emission = Color(emission.r, emission.g, emission.b)
+					m.emission_energy_multiplier = emission.a
+					m.set("disable_fog", true)
+				n.set_surface_override_material(si, m)
+
+
+static func model_mesh(name: String) -> ArrayMesh:
+	## Junta todas las mallas de un modelo en una sola (para repartirla con MultiMesh).
+	var root := model(name)
+	if root == null:
+		return null
+	var out := ArrayMesh.new()
+	var stack: Array = [[root, Transform3D()]]
+	while stack.size() > 0:
+		var it: Array = stack.pop_back()
+		var n: Node = it[0]
+		var xf: Transform3D = it[1]
+		if n is Node3D and n != root:
+			xf = xf * (n as Node3D).transform
+		for c in n.get_children():
+			stack.append([c, xf])
+		if n is MeshInstance3D and n.mesh:
+			for si in n.mesh.get_surface_count():
+				var arr: Array = n.mesh.surface_get_arrays(si)
+				var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+				for i in v.size():
+					v[i] = xf * v[i]
+				arr[Mesh.ARRAY_VERTEX] = v
+				if arr[Mesh.ARRAY_NORMAL]:
+					var nr: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+					for i in nr.size():
+						nr[i] = (xf.basis * nr[i]).normalized()
+					arr[Mesh.ARRAY_NORMAL] = nr
+				arr[Mesh.ARRAY_TANGENT] = null
+				out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+				out.surface_set_material(out.get_surface_count() - 1, n.get_active_material(si))
+	root.free()
+	return out
+
+
 static func mat(c: Color, rough := 0.85, metal := 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
@@ -136,7 +249,7 @@ static func build_boat(parent: Node, white: Color, band: Color, bottom: Color) -
 	var node := Node3D.new()
 	parent.add_child(node)
 	add_mesh(node, hull_mesh(white, band, bottom), vc_mat(0.55), Vector3.ZERO)
-	add_mesh(node, deck_mesh(), vc_mat(0.9), Vector3.ZERO)
+	add_mesh(node, deck_mesh(), tex_mat("brown_planks_05", Color(1.1, 1.0, 0.9), 0.9, 0.85), Vector3.ZERO)
 	# caseta del timón
 	var cab_white := mat(white.darkened(0.04), 0.6)
 	add_mesh(node, box(Vector3(1.4, 1.05, 1.3)), cab_white, Vector3(0, 1.0, 1.0))
@@ -336,8 +449,9 @@ static func house(parent: Node, pos: Vector3, w: float, d: float, h: float, rng:
 	g.position = pos
 	g.rotation.y = facing
 	parent.add_child(g)
-	var wall := mat(wall_c if wall_c.a > 0.0 else WALLS[rng.randi() % WALLS.size()], 0.9)
-	var wood := mat(wood_c if wood_c.a > 0.0 else WOODS[rng.randi() % WOODS.size()], 0.7)
+	var wc: Color = wall_c if wall_c.a > 0.0 else WALLS[rng.randi() % WALLS.size()]
+	var wall := tex_mat("white_plaster_rough_01", wc.lightened(0.05), 0.3)
+	var wood := tex_mat("weathered_planks", (wood_c if wood_c.a > 0.0 else WOODS[rng.randi() % WOODS.size()]).lightened(0.25), 0.6, 0.8)
 	var dark := mat(Color("1b1a1a"), 0.4)
 	add_mesh(g, box(Vector3(w, h + 3.0, d)), wall, Vector3(0, (h - 3.0) / 2.0, 0))
 	# pretil de la azotea
@@ -371,8 +485,8 @@ static func church(parent: Node, pos: Vector3) -> void:
 	var g := Node3D.new()
 	g.position = pos
 	parent.add_child(g)
-	var white := mat(Color("f3efe6"), 0.9)
-	var stone := mat(Color("4a4440"), 0.95)
+	var white := tex_mat("white_plaster_rough_01", Color("f6f2ea"), 0.3)
+	var stone := tex_mat("rock_face", Color("6a6460"), 0.5)
 	var roof := mat(Color("9c4a32"), 0.8)
 	add_mesh(g, box(Vector3(8, 10, 15)), white, Vector3(0, 2.0, 0))
 	var prism := PrismMesh.new()
@@ -449,6 +563,24 @@ static func banana_mesh() -> ArrayMesh:
 static func ghost_ship(parent: Node, dark := false) -> Node3D:
 	## Barco fantasma: galeón viejo, translúcido y con faroles verdes.
 	## Con dark = true es el galeón negro de Don Baltasar, con faroles rojos.
+	var ship := model("dutch_ship_medium")
+	if ship:
+		var g0 := Node3D.new()
+		parent.add_child(g0)
+		g0.add_child(ship)
+		ship.rotation.y = PI / 2
+		ship.position.y = -1.2
+		if dark:
+			tint_model(ship, Color(0.22, 0.2, 0.2), Color(0.25, 0.03, 0.02, 0.4))
+		else:
+			tint_model(ship, Color(0.55, 1.0, 0.75), Color(0.2, 0.75, 0.5, 1.2), 0.6)
+		var gl := OmniLight3D.new()
+		gl.light_color = Color(1.0, 0.25, 0.15) if dark else Color(0.4, 1.0, 0.6)
+		gl.light_energy = 4.0
+		gl.omni_range = 45
+		gl.position = Vector3(0, 8, 0)
+		g0.add_child(gl)
+		return g0
 	var g := Node3D.new()
 	parent.add_child(g)
 	var wood := StandardMaterial3D.new()

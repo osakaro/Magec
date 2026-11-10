@@ -54,6 +54,9 @@ var bz := -40.0
 var ba := 0.0
 var bv := 0.0
 var bturn := 0.0   # velocidad de giro (con inercia)
+var wake_pts: Array = []   # estela: [x, z, edad, velocidad]
+var wake_timer := 0.0
+var spray: GPUParticles3D
 
 # Pesca
 var fishing: Dictionary = {}
@@ -245,6 +248,13 @@ func _build_environment() -> void:
 	env.glow_intensity = 0.7
 	env.glow_bloom = 0.06
 	env.glow_hdr_threshold = 1.1
+	env.ssil_enabled = true
+	env.ssil_intensity = 0.8
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.004
+	env.volumetric_fog_anisotropy = 0.55
+	env.volumetric_fog_length = 120.0
+	env.volumetric_fog_sky_affect = 0.0
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.08
 	env.adjustment_saturation = 1.08
@@ -278,11 +288,25 @@ func _build_ocean() -> void:
 	ocean.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
+func apply_terrain_tex(m: ShaderMaterial) -> void:
+	## Texturas fotográficas del terreno (Poly Haven, CC0).
+	var sets := {"rock": "rock_face", "lava": "aerial_rocks_04", "sand": "coast_sand_01", "ground": "dry_ground_01"}
+	for k in sets:
+		var a: Texture2D = Props.tex(sets[k], "albedo")
+		var n: Texture2D = Props.tex(sets[k], "normal")
+		if a == null:
+			m.set_shader_parameter("use_textures", false)
+			return
+		m.set_shader_parameter(k + "_alb", a)
+		m.set_shader_parameter(k + "_nrm", n)
+
+
 func _build_land() -> void:
 	# Costa volcánica con sombreado suave; el color lo pone el shader del terreno.
 	terrain_mat = ShaderMaterial.new()
 	terrain_mat.shader = TERRAIN_SHADER
 	terrain_mat.set_shader_parameter("detail", _noise_tex(0.02, 512, false, 31, 5))
+	apply_terrain_tex(terrain_mat)
 	if region != "tenerife":
 		terrain_mat.set_shader_parameter("snow_line", 9999.0)
 	var looks := {
@@ -406,6 +430,7 @@ func _build_lg_mountains() -> void:
 	far_mat.shader = TERRAIN_SHADER
 	far_mat.set_shader_parameter("detail", terrain_mat.get_shader_parameter("detail"))
 	far_mat.set_shader_parameter("snow_line", 190.0)
+	apply_terrain_tex(far_mat)
 	var keep := terrain_mat
 	terrain_mat = far_mat
 	_mountain(Vector3(760, -30, 120), 360.0, 300.0, 1)
@@ -419,6 +444,7 @@ func _volcano(center: Vector3, radius: float, height: float, col: Color, smoking
 	vm.shader = TERRAIN_SHADER
 	vm.set_shader_parameter("detail", terrain_mat.get_shader_parameter("detail"))
 	vm.set_shader_parameter("snow_line", 9999.0)
+	apply_terrain_tex(vm)
 	vm.set_shader_parameter("earth", col)
 	vm.set_shader_parameter("scrub", col.darkened(0.2))
 	vm.set_shader_parameter("basalt", col.darkened(0.35))
@@ -463,9 +489,9 @@ func _volcano(center: Vector3, radius: float, height: float, col: Color, smoking
 
 func _build_village(seed_v: int, wall_c := Color(0, 0, 0, 0), wood_c := Color(0, 0, 0, 0), avoid := Vector2(9999, 9999)) -> void:
 	## Muelle de madera y un pueblo de casas canarias frente al mar.
-	var stone := _mat(Color("6d665e"), 1.0)
+	var stone := Props.tex_mat("rock_face", Color("8a827a"), 0.4)
 	_mesh(Props.box(Vector3(4.6, 2.4, 25)), stone, Vector3(0, -0.2, -66.5))
-	var plank := _mat(Color("7a5636"), 0.9)
+	var plank := Props.tex_mat("weathered_planks", Color(1.0, 0.92, 0.82), 0.5)
 	for i in 25:
 		_mesh(Props.box(Vector3(4.4, 0.12, 0.95)), plank, Vector3(0, 1.06, -54.5 - i))
 	var rng := RandomNumberGenerator.new()
@@ -493,6 +519,18 @@ func _build_village(seed_v: int, wall_c := Color(0, 0, 0, 0), wood_c := Color(0,
 	gl.radius = 0.4
 	gl.height = 0.8
 	_mesh(gl, lamp_m, Vector3(1.6, 6.6, -72))
+	_dock_props()
+
+
+func _dock_props() -> void:
+	## Barriles, cajas, farol y salvavidas sobre el muelle (modelos de Poly Haven).
+	Props.place(self, "wooden_barrels_01", Vector3(1.4, 1.12, -59.5), 1.2, 0.4)
+	Props.place(self, "Barrel_01", Vector3(1.5, 1.12, -61.0), 1.1, 1.2)
+	Props.place(self, "wooden_crate_01", Vector3(-1.5, 1.12, -63.5), 1.4, 0.2)
+	Props.place(self, "wooden_crate_01", Vector3(-1.4, 1.6, -63.4), 1.3, -0.3)
+	Props.place(self, "wooden_lantern_01", Vector3(-1.4, 2.08, -63.3), 1.4)
+	Props.place(self, "lifebuoy", Vector3(2.25, 1.6, -67.0), 1.2, PI / 2)
+	Props.place(self, "wooden_crate_01", Vector3(1.6, 1.12, -71.0), 1.3, 1.0)
 
 
 func _lighthouse(x: float, z: float, h := 16.0) -> void:
@@ -616,8 +654,16 @@ func _build_vegetation() -> void:
 	Props.scatter(self, Props.palm_mesh(), Props.vc_mat(0.85), palms)
 	var cm := Props.mat(Color("5d7a4a"), 0.8)
 	Props.scatter(self, Props.cardon_mesh(), cm, cardones)
-	var sm := Props.mat(Color("6f7f3a"), 0.95)
-	Props.scatter(self, Props.shrub_mesh(), sm, shrubs)
+	var shrub_model := Props.model_mesh("wild_rooibos_bush")
+	if shrub_model:
+		# tabaibas y matorral: modelo fotogramétrico, agrandado
+		var big: Array = []
+		for t in shrubs:
+			big.append(Transform3D(t.basis.scaled(Vector3(2.2, 2.0, 2.2)), t.origin))
+		Props.scatter(self, shrub_model, null, big)
+	else:
+		var sm := Props.mat(Color("6f7f3a"), 0.95)
+		Props.scatter(self, Props.shrub_mesh(), sm, shrubs)
 	if region in ["la_palma", "el_hierro"]:
 		# pinar canario en las alturas; sabinas en El Hierro; plataneras en La Palma
 		var trees: Array = []
@@ -750,12 +796,12 @@ func _build_port() -> void:
 			_build_village(43, Color(0, 0, 0, 0), Color(0, 0, 0, 0))
 			_lighthouse(-120.0, -82.0, 14.0)
 	# Muelle: base de piedra, tablones de madera y bolardos
-	var stone := _mat(Color("6d665e"), 1.0)
+	var stone := Props.tex_mat("rock_face", Color("8a827a"), 0.4)
 	var dock := BoxMesh.new()
 	dock.size = Vector3(4.4, 2.4, 24)
 	_mesh(dock, stone, Vector3(0, -0.2, -66))
-	var plank_a := _mat(Color("7a5636"), 0.9)
-	var plank_b := _mat(Color("6b4a2f"), 0.9)
+	var plank_a := Props.tex_mat("weathered_planks", Color(1.0, 0.92, 0.82), 0.5)
+	var plank_b := Props.tex_mat("weathered_planks", Color(0.9, 0.82, 0.72), 0.5)
 	for i in 24:
 		var pb := BoxMesh.new()
 		pb.size = Vector3(4.2, 0.12, 0.95)
@@ -798,6 +844,7 @@ func _build_port() -> void:
 			continue
 		Props.house(self, Vector3(x, max(land_h(x, z), 0.5), z), w, 6.0, h, rng)
 	Props.church(self, Vector3(-14, max(land_h(-14, -100), 0.5), -100))
+	_dock_props()
 	# Farolas del paseo
 	var lamp_m := _mat(Color("ffdba0"))
 	lamp_m.emission_enabled = true
@@ -806,11 +853,12 @@ func _build_port() -> void:
 	for i in 5:
 		var x := -28.0 + i * 14.0
 		var y: float = max(land_h(x, -79.0), 0.6)
-		_mesh(Props.cyl(0.07, 0.09, 4.0, 6), iron, Vector3(x, y + 2.0, -79.0))
+		if Props.place(self, "street_lamp_01", Vector3(x, y, -79.0), 1.3, PI) == null:
+			_mesh(Props.cyl(0.07, 0.09, 4.0, 6), iron, Vector3(x, y + 2.0, -79.0))
 		var gl := SphereMesh.new()
-		gl.radius = 0.25
-		gl.height = 0.5
-		_mesh(gl, lamp_m, Vector3(x, y + 4.1, -79.0))
+		gl.radius = 0.18
+		gl.height = 0.36
+		_mesh(gl, lamp_m, Vector3(x, y + 4.75, -79.0))
 	# Farola del muelle
 	var pole := CylinderMesh.new()
 	pole.top_radius = 0.12
@@ -838,6 +886,44 @@ func _build_boat() -> void:
 	boat = b["node"]
 	lamp_light = b["light"]
 	lamp_mat = b["lamp_mat"]
+	lamp_light.light_volumetric_fog_energy = 2.5
+	# salpicaduras en la proa
+	spray = GPUParticles3D.new()
+	spray.amount = 70
+	spray.lifetime = 0.8
+	spray.local_coords = false
+	spray.emitting = false
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(1.0, 0.1, 0.3)
+	pm.direction = Vector3(0, 1, -0.4)
+	pm.spread = 35.0
+	pm.initial_velocity_min = 2.5
+	pm.initial_velocity_max = 5.0
+	pm.gravity = Vector3(0, -9.8, 0)
+	pm.scale_min = 0.6
+	pm.scale_max = 1.4
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 0.9))
+	ramp.set_color(1, Color(1, 1, 1, 0.0))
+	var gt := GradientTexture1D.new()
+	gt.gradient = ramp
+	pm.color_ramp = gt
+	spray.process_material = pm
+	var drop := SphereMesh.new()
+	drop.radius = 0.09
+	drop.height = 0.18
+	drop.radial_segments = 6
+	drop.rings = 3
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.92, 0.97, 1.0, 0.85)
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.vertex_color_use_as_albedo = true
+	dm.roughness = 0.1
+	drop.material = dm
+	spray.draw_pass_1 = drop
+	spray.position = Vector3(0, 0.3, -3.2)
+	boat.add_child(spray)
 
 
 func make_boat(hull_col: Color, stripe1: Color, stripe2: Color) -> Dictionary:
@@ -928,6 +1014,9 @@ func _apply_light() -> void:
 	ocean_mat.set_shader_parameter("sky_color", hor.lerp(top_c, 0.35))
 	env.fog_light_color = hor
 	env.fog_density = lerp(0.016, 0.0026, l) * (1.0 - dusk_amt * 0.5) + panic * 0.00015 + float(wb["fog"])
+	# niebla volumétrica: rayos de sol al atardecer y conos de luz del farol de noche
+	env.volumetric_fog_density = 0.003 + float(wb["fog"]) * 0.5 + (1.0 - l) * 0.004 + dusk_amt * 0.004
+	env.volumetric_fog_albedo = hor.lerp(Color.WHITE, 0.4)
 	if quest and quest.boss and quest.boss.phase in ["rise", "fight", "defeat"]:
 		env.fog_density *= 0.45   # el resplandor de la lava aclara la noche
 	env.ambient_light_energy = 0.55 + l * 0.25
@@ -1512,6 +1601,24 @@ func _update_world(dt: float) -> void:
 	var cell := OCEAN_SIZE / OCEAN_SUBDIV
 	ocean.position = Vector3(round(bx / cell) * cell, 0, round(bz / cell) * cell)
 	ocean_mat.set_shader_parameter("time_s", t)
+	# estela: un punto nuevo cada 0,25 s mientras el barco se mueve
+	wake_timer -= dt
+	if wake_timer <= 0.0:
+		wake_timer = 0.25
+		var stern := Vector2(bx + sin(ba) * 2.6, bz + cos(ba) * 2.6)
+		wake_pts.push_front([stern.x, stern.y, 0.0, abs(bv)])
+		if wake_pts.size() > 24:
+			wake_pts.pop_back()
+	var wk: Array = []
+	for p in wake_pts:
+		p[2] += dt
+		wk.append(Vector4(p[0], p[1], p[2], p[3]))
+	while wk.size() < 24:
+		wk.append(Vector4(0, 0, 99, 0))
+	ocean_mat.set_shader_parameter("wake", wk)
+	if spray:
+		spray.emitting = abs(bv) > 4.5 and mode == "sail"
+		spray.amount_ratio = clamp((abs(bv) - 4.0) / 8.0, 0.1, 1.0)
 	ocean_mat.set_shader_parameter("amp", amp)
 	for s in spots:
 		if s["left"] == 0 and game_time >= s["back"]:

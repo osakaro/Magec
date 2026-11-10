@@ -16,6 +16,9 @@ uniform sampler2D normal_b : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform sampler2D foam_noise : filter_linear_mipmap, repeat_enable;
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+// Estela del barco: posiciones recientes (x, z, edad en segundos, velocidad)
+uniform vec4 wake[24];
+uniform float choppy = 0.9;
 
 varying float h;
 varying vec3 wpos;
@@ -34,6 +37,8 @@ void vertex() {
 	float hx = wave(wp.xz + vec2(e, 0.0), time_s);
 	float hz = wave(wp.xz + vec2(0.0, e), time_s);
 	VERTEX.y += hh;
+	// crestas más afiladas: los vértices se juntan hacia la cresta (estilo Gerstner)
+	VERTEX.xz -= vec2(hx - hh, hz - hh) / e * choppy;
 	NORMAL = normalize(vec3(-(hx - hh) / e, 1.0, -(hz - hh) / e));
 	h = hh;
 	wpos = wp + vec3(0.0, hh, 0.0);
@@ -73,8 +78,22 @@ void fragment() {
 	float shore = 1.0 - smoothstep(0.0, 1.6 + fn * 1.2, diff);
 	float edge_line = smoothstep(0.45, 0.6, fract(diff * 0.6 - time_s * 0.35 + fn)) * (1.0 - smoothstep(0.0, 3.5, diff));
 	float crest_foam = smoothstep(0.7, 0.95, crest + fn2 * 0.25) * smoothstep(1.3, 2.1, amp);
-	float foam = clamp(shore * (0.55 + fn2 * 0.6) + edge_line * 0.5 + crest_foam * 0.6, 0.0, 1.0);
-	foam *= step(0.4, fn2 + shore * 0.6);
+	// estela: una V de espuma que se abre y se desvanece detrás del barco
+	float wk = 0.0;
+	for (int i = 0; i < 24; i++) {
+		vec4 p = wake[i];
+		if (p.w <= 0.2) { continue; }
+		float age = p.z;
+		float d = length(wpos.xz - p.xy);
+		float spread = 1.3 + age * 1.6;
+		float strength = clamp(p.w / 9.0, 0.0, 1.0) * (1.0 - smoothstep(0.0, 6.0, age));
+		float core = exp(-d * d / (spread * spread * 0.6));
+		float edge = exp(-pow((d - spread) / (0.7 + age * 0.3), 2.0));
+		wk += strength * (core * 0.6 + edge * 0.8);
+	}
+	wk = clamp(wk, 0.0, 1.0) * (0.55 + fn2 * 0.7);
+	float foam = clamp(shore * (0.55 + fn2 * 0.6) + edge_line * 0.5 + crest_foam * 0.6 + wk, 0.0, 1.0);
+	foam *= step(0.4, fn2 + shore * 0.6 + wk);
 	vec3 foam_col = vec3(0.92, 0.95, 0.95) * (0.15 + 0.85 * daylight);
 
 	// reflejo del cielo según el ángulo
