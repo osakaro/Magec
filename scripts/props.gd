@@ -344,7 +344,7 @@ static func build_boat(parent: Node, white: Color, band: Color, bottom: Color, n
 	add_mesh(node, box(Vector3(0.6, 0.3, 0.45)), mat(Color("c9a227")), Vector3(0.4, 0.92, -2.05))
 	place(node, "lifebuoy", Vector3(0.73, 1.15, 1.0), 0.55, PI / 2)
 	# nombre pintado a ambos lados de la proa
-	if name != "":
+	if false and name != "":   # nombres en el casco desactivados (no quedaban integrados)
 		for side in [-1.0, 1.0]:
 			var lb := Label3D.new()
 			lb.text = name

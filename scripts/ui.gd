@@ -92,7 +92,7 @@ var menu_buttons: VBoxContainer
 var menu_confirm: HBoxContainer
 var pause_panel: WoodPanel
 var options_panel: WoodPanel
-var opt := {"master": 0.8, "music": 0.8, "sfx": 0.9, "fullscreen": false}
+var opt := {"master": 0.8, "music": 0.8, "sfx": 0.9, "fullscreen": false, "quality": 2}
 const OPT_PATH := "user://opciones.cfg"
 var cine_black: ColorRect
 var cine_card: Label
@@ -1914,6 +1914,21 @@ func _build_options(root: Control) -> void:
 	_slider_row(vb, "Volumen general", "master")
 	_slider_row(vb, "Música", "music")
 	_slider_row(vb, "Efectos y mar", "sfx")
+	var qrow := HBoxContainer.new()
+	qrow.add_theme_constant_override("separation", 14)
+	var ql := _label("Calidad gráfica", 18, FOAM, F_TITLE_R)
+	ql.custom_minimum_size = Vector2(170, 0)
+	qrow.add_child(ql)
+	var qo := OptionButton.new()
+	for q in ["Baja (ordenadores modestos)", "Media", "Alta"]:
+		qo.add_item(q)
+	qo.selected = int(opt["quality"])
+	qo.item_selected.connect(func(i):
+		opt["quality"] = i
+		_apply_options()
+		_save_options())
+	qrow.add_child(qo)
+	vb.add_child(qrow)
 	var fs := CheckButton.new()
 	fs.text = "Pantalla completa"
 	fs.add_theme_font_override("font", F_TITLE_R)
@@ -1938,6 +1953,12 @@ func _load_options() -> void:
 	if cf.load(OPT_PATH) == OK:
 		for k in opt.keys():
 			opt[k] = cf.get_value("opciones", k, opt[k])
+	else:
+		# primera vez: en gráficas integradas (portátiles, oficina) empieza en calidad baja
+		var gpu := RenderingServer.get_video_adapter_name().to_lower()
+		for weak in ["intel", "uhd", "iris", "llvmpipe", "vega 8", "radeon(tm) graphics", "microsoft basic"]:
+			if gpu.contains(weak):
+				opt["quality"] = 0
 	_apply_options()
 	# refrescar controles con los valores cargados
 	options_panel.queue_free()
@@ -1957,9 +1978,32 @@ func _apply_options() -> void:
 		var i := AudioServer.get_bus_index(pair[0])
 		if i != -1:
 			AudioServer.set_bus_volume_db(i, linear_to_db(max(opt[pair[1]], 0.0001)))
+	apply_quality(int(opt["quality"]))
 	var want := DisplayServer.WINDOW_MODE_FULLSCREEN if opt["fullscreen"] else DisplayServer.WINDOW_MODE_WINDOWED
 	if DisplayServer.window_get_mode() != want and DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(want)
+
+
+func apply_quality(q: int) -> void:
+	## 0 = baja, 1 = media, 2 = alta. Cambia los efectos más caros.
+	if main == null or main.env == null:
+		return
+	var env: Environment = main.env
+	env.volumetric_fog_enabled = q >= 2
+	env.ssil_enabled = q >= 2
+	env.ssao_enabled = q >= 1
+	env.glow_enabled = q >= 1
+	var vp := get_viewport()
+	vp.scaling_3d_scale = 0.7 if q == 0 else 1.0
+	vp.msaa_3d = Viewport.MSAA_DISABLED if q == 0 else (Viewport.MSAA_2X if q == 1 else Viewport.MSAA_4X)
+	if q == 0:
+		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+	else:
+		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	main.sun.directional_shadow_max_distance = 70.0 if q == 0 else (140.0 if q == 1 else 220.0)
+	main.sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	if main.lamp_light:
+		main.lamp_light.shadow_enabled = q >= 1
 
 
 func _unhandled_input(event: InputEvent) -> void:
