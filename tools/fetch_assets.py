@@ -70,6 +70,25 @@ def fetch_model(name):
         get(inc["url"], os.path.join(base, rel))
 
 
+def normalize(name, target, keep_color):
+    """Ajusta el brillo medio de una textura (y opcionalmente la pasa a gris) para
+    que funcione como base que luego se tiñe en el juego."""
+    from PIL import Image, ImageOps, ImageStat
+    path = os.path.join(ROOT, "textures", name, "albedo.jpg")
+    flag = path + ".normalizada"
+    if not os.path.exists(path) or os.path.exists(flag):
+        return
+    im = Image.open(path).convert("RGB")
+    if not keep_color:
+        im = ImageOps.grayscale(im).convert("RGB")
+    mean = sum(ImageStat.Stat(im).mean) / 3.0
+    k = target / max(mean, 1.0)
+    im = im.point(lambda v: min(255, int(v * k)))
+    im.save(path, quality=92)
+    open(flag, "w").close()
+    print("   normalizada", name)
+
+
 if __name__ == "__main__":
     for t in TEXTURES:
         fetch_texture(t)
@@ -78,6 +97,8 @@ if __name__ == "__main__":
             fetch_model(m)
         except Exception as e:  # algún modelo puede no tener gltf
             print("   (saltado)", m, e, file=sys.stderr)
+    normalize("white_plaster_rough_01", 215, False)   # enlucido: gris claro neutro
+    normalize("weathered_planks", 140, True)          # madera: más clara
     with open(os.path.join(ROOT, "LICENCIA.txt"), "w") as f:
         f.write("Texturas y modelos de Poly Haven (https://polyhaven.com), licencia CC0.\n"
                 "Dominio público: se pueden usar, modificar y distribuir sin restricciones.\n")
