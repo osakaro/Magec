@@ -95,7 +95,7 @@ var menu_buttons: VBoxContainer
 var menu_confirm: HBoxContainer
 var pause_panel: WoodPanel
 var options_panel: WoodPanel
-var opt := {"master": 0.8, "music": 0.8, "sfx": 0.9, "fullscreen": false, "quality": 2, "tutorial": true}
+var opt := {"master": 0.8, "music": 0.8, "sfx": 0.9, "fullscreen": false, "quality": 2, "tutorial": true, "difficulty": 1}
 const OPT_PATH := "user://opciones.cfg"
 var cine_black: ColorRect
 var cine_card: Label
@@ -1163,15 +1163,20 @@ func toast_new_species(key: String, mut: bool) -> void:
 
 
 func _build_port(root: Control) -> void:
-	port_panel = _center_panel(root, 560)
+	port_panel = _center_panel(root, 620)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	port_panel.add_child(vb)
 	vb.add_child(Plaque.new(Data.REGIONS[main.region]["port"].to_upper(), 20))
 	vb.add_child(_label("Aquí estás a salvo. La luz del puerto calma el miedo.", 16, SALT))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 470)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(scroll)
 	port_list = VBoxContainer.new()
 	port_list.add_theme_constant_override("separation", 8)
-	vb.add_child(port_list)
+	port_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(port_list)
 	var b := _button("Zarpar", func():
 		port_panel.visible = false
 		main.leave_port(), true)
@@ -1393,6 +1398,9 @@ func open_catch(key: String, mut: bool, fits: bool, is_new := false) -> void:
 	catch_name.add_theme_color_override("font_color", Color("e2675b") if mut else FOAM)
 	catch_price.text = "%d €" % Data.fish_value(key, mut)
 	catch_desc.text = Data.FISH[key]["md"] if mut else Data.FISH[key]["d"]
+	var who: String = main.side.wanted(key, mut)
+	if who != "":
+		catch_desc.text += "\n★ Lo busca: %s." % who
 	keep_btn.disabled = not fits
 	keep_btn.text = "Guardar en bodega" if fits else "No cabe en la bodega"
 	catch_panel.visible = true
@@ -1472,22 +1480,60 @@ func _port_line(title: String, sub: String, btn_text: String, disabled: bool, cb
 	row.add_child(b)
 
 
+func _section(title: String) -> void:
+	var l := _label(title, 15, SUN, F_TITLE)
+	l.add_theme_constant_override("outline_size", 0)
+	port_list.add_child(l)
+
+
 func _render_port() -> void:
 	for c in port_list.get_children():
 		c.queue_free()
+	# ---- Lonja
+	_section("LONJA")
 	var total: int = main.hold_value()
-	_port_line("Vender la pesca", "%d peces en la bodega" % main.items.size(), "+%d €" % total, total == 0, main.sell_all)
+	_port_line("Vender la pesca", "%d peces en la bodega%s" % [main.items.size(), "  ·  nevera +20 %" if main.has_fridge else ""], "+%d €" % total, total == 0, main.sell_all)
 	_port_line("Pagar deuda del barco", ("Quedan %d €" % main.debt) if main.debt > 0 else "Pagada", "Pagar", main.money <= 0 or main.debt <= 0, main.pay_debt)
-	if main.speed_lvl < 2:
-		_port_line("Motor nuevo", "Navegas más rápido", "%d €" % main.engine_price(), main.money < main.engine_price(), main.buy_engine)
-	if main.rows < 5:
-		_port_line("Ampliar bodega", "Una fila más de espacio", "%d €" % main.hold_price(), main.money < main.hold_price(), main.buy_hold)
+	if main.quest.baltasar_open():
+		var mt := 0
+		for it in main.items:
+			if it["mut"]:
+				mt += int(Data.fish_value(it["key"], true) * 1.5)
+		_port_line("Vender mutantes a Don Baltasar", "Paga una vez y media. Nadie sabe para qué los quiere.", "+%d €" % mt, mt == 0, func(): main.quest.sell_mutants_to_baltasar())
+	# ---- Encargos
+	_section("ENCARGOS DEL DÍA")
+	for e in main.side.current():
+		var ent: Dictionary = e
+		if ent["done"]:
+			_port_line(ent["who"], "Entregado. ¡Gracias!", "✓", true, func(): pass)
+		else:
+			var have: int = main.side.have(ent)
+			_port_line(ent["who"], "Pide %s  ·  tienes %d/%d" % [ent["text"], min(have, int(ent["count"])), int(ent["count"])], "Entregar · %d €" % int(ent["reward"]), have < int(ent["count"]), func(): main.side.deliver(ent))
+	# ---- Astillero
+	_section("ASTILLERO")
 	if main.hull < main.hull_max:
 		var rc: int = 40 * (main.hull_max - main.hull)
-		_port_line("Reparar el casco", "Casco %d/%d. Los astilleros de Güímar lo dejan como nuevo." % [main.hull, main.hull_max], "%d €" % rc, main.money < rc, func():
+		_port_line("Reparar el casco", "Casco %d/%d." % [main.hull, main.hull_max], "%d €" % rc, main.money < rc, func():
 			main.money -= rc
 			main.hull = main.hull_max
 			toast("Casco reparado."))
+	if main.speed_lvl < 3:
+		_port_line("Motor %s" % ["nuevo", "II", "III"][main.speed_lvl], "Navegas más rápido.", "%d €" % main.engine_price(), main.money < main.engine_price(), main.buy_engine)
+	if main.rows < 5:
+		_port_line("Ampliar bodega", "Una fila más de espacio.", "%d €" % main.hold_price(), main.money < main.hold_price(), main.buy_hold)
+	if main.hull_lvl < 2:
+		_port_line("Casco reforzado %s" % ["I", "II"][main.hull_lvl], "Aguanta un golpe más contra rocas, lava y dientes.", "%d €" % main.hull_price(), main.money < main.hull_price(), main.buy_hull)
+	var ups := [
+		["rod", "Caña buena", "El agua dorada del minijuego es un 25 % más ancha.", 180, main.has_rod],
+		["sonar", "Sonar", "La brújula marca los bancos de peces cercanos.", 250, main.has_sonar],
+		["foco", "Foco de proa", "Más luz de noche; el Tibicena se queda más lejos.", 200, main.has_foco],
+		["fridge", "Nevera", "El pescado se vende un 20 % más caro.", 300, main.has_fridge],
+	]
+	for u in ups:
+		if not u[4]:
+			var what: String = u[0]
+			var price: int = u[3]
+			_port_line(u[1], u[2], "%d €" % price, main.money < price, func(): main.buy_upgrade(what, price))
 	var g = main.gear
 	if g.nasas_owned < g.MAX_NASAS:
 		_port_line("Nasa para pulpos y morenas", "Échala con N y vuelve a por ella horas después. Tienes %d." % g.nasas_owned, "%d €" % g.NASA_PRICE, main.money < g.NASA_PRICE, func():
@@ -1499,19 +1545,15 @@ func _render_port() -> void:
 			main.money -= g.NET_PRICE
 			g.net_owned = true
 			toast("Red comprada. Pulsa R en el mar para echarla o recogerla."))
-	if main.quest.baltasar_open():
-		var mt := 0
-		for it in main.items:
-			if it["mut"]:
-				mt += int(Data.fish_value(it["key"], true) * 1.5)
-		_port_line("Vender mutantes a Don Baltasar", "Paga una vez y media. Nadie sabe para qué los quiere.", "+%d €" % mt, mt == 0, func(): main.quest.sell_mutants_to_baltasar())
+	# ---- Gente y viajes
+	_section("GENTE Y VIAJES")
 	for p in main.quest.port_people():
 		var cb: Callable = p[2]
 		_port_line(p[0], p[1], "Ir" if p[0].begins_with("Viajar") or p[0].begins_with("Volver") else "Hablar", false, func():
 			port_panel.visible = false
 			cb.call())
 	if main.is_night():
-		_port_line("Dormir hasta el amanecer", "Pasa la noche en casa", "Dormir", false, main.sleep)
+		_port_line("Dormir hasta el amanecer", "Pasa la noche en casa.", "Dormir", false, main.sleep)
 	refresh_hold()
 
 
@@ -1633,6 +1675,17 @@ class Compass extends Control:
 		var gi: String = game.quest.goal_island()
 		if gi != "":
 			info = "Ve al puerto y cruza a " + gi
+		# sonar: puntos verdes para los bancos de peces cercanos
+		if game.has_sonar:
+			for sp in game.spots:
+				if sp["left"] <= 0:
+					continue
+				var sv: Vector2 = Vector2(sp["x"], sp["z"]) - Vector2(game.bx, game.bz)
+				var sd := sv.length()
+				if sd < 140.0:
+					var sa := atan2(sv.x, -sv.y) - heading
+					var sr: float = lerp(18.0, R - 18.0, sd / 140.0)
+					draw_circle(_pos(c, sa, sr), 3.5, Color(0.45, 1.0, 0.6, 0.9))
 		# eco del silbo: marca azul que se desvanece
 		var et: float = game.quest.echo_time
 		if et > 0.0:
@@ -1970,6 +2023,20 @@ func _build_options(root: Control) -> void:
 		_save_options())
 	qrow.add_child(qo)
 	vb.add_child(qrow)
+	var drow := HBoxContainer.new()
+	drow.add_theme_constant_override("separation", 14)
+	var dl := _label("Dificultad", 18, FOAM, F_TITLE_R)
+	dl.custom_minimum_size = Vector2(170, 0)
+	drow.add_child(dl)
+	var dopt := OptionButton.new()
+	for q in ["Relajada", "Normal", "Difícil"]:
+		dopt.add_item(q)
+	dopt.selected = int(opt["difficulty"])
+	dopt.item_selected.connect(func(i):
+		opt["difficulty"] = i
+		_save_options())
+	drow.add_child(dopt)
+	vb.add_child(drow)
 	var tu := CheckButton.new()
 	tu.text = "Consejos del tutorial"
 	tu.add_theme_font_override("font", F_TITLE_R)

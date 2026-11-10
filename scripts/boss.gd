@@ -355,7 +355,7 @@ func _process(dt: float) -> void:
 				var lit := 0
 				for x in fires:
 					lit += 1 if x["lit"] else 0
-				bomb_timer = 1.6 - lit * 0.3
+				bomb_timer = (1.6 - lit * 0.3) / main.diff("bomb")
 				_spawn_bomb()
 			if int(ptimer / 9.0) > lines_said and lines_said < TAUNTS.size():
 				main.ui.toast(TAUNTS[lines_said])

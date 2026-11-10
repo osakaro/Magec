@@ -16,6 +16,14 @@ const Hazards = preload("res://scripts/hazards.gd")
 const Weather = preload("res://scripts/weather.gd")
 const Life = preload("res://scripts/life.gd")
 const Tutorial = preload("res://scripts/tutorial.gd")
+const Side = preload("res://scripts/side.gd")
+
+# Dificultad: 0 relajada, 1 normal, 2 difícil
+const DIFF := [
+	{"panic": 0.55, "hunt": 0.5, "beast": 0.85, "fish_speed": 0.85, "fish_w": 1.3, "bomb": 0.7, "rock": 4.5},
+	{"panic": 1.0, "hunt": 1.0, "beast": 1.0, "fish_speed": 1.0, "fish_w": 1.0, "bomb": 1.0, "rock": 2.5},
+	{"panic": 1.35, "hunt": 1.6, "beast": 1.12, "fish_speed": 1.15, "fish_w": 0.85, "bomb": 1.3, "rock": 1.8},
+]
 
 # Altura de las olas (la cinemática la sube durante el temblor)
 static var amp := 1.0
@@ -44,6 +52,12 @@ var panic := 0.0
 var lamp_on := false
 var lamp_mult := 1.0   # mejora del farol (misión 1)
 var speed_lvl := 0
+# Mejoras del astillero
+var hull_lvl := 0
+var has_rod := false
+var has_sonar := false
+var has_foco := false
+var has_fridge := false
 var rows := 3
 var cols := 6
 var items: Array = []
@@ -88,6 +102,7 @@ var hazards
 var weather
 var life
 var tutorial
+var side
 var hull := 3
 var hull_max := 3
 var region := "tenerife"
@@ -134,6 +149,9 @@ func _ready() -> void:
 	tutorial = Tutorial.new()
 	tutorial.main = self
 	add_child(tutorial)
+	side = Side.new()
+	side.main = self
+	add_child(side)
 	life = Life.new()
 	life.main = self
 	add_child(life)
@@ -1087,10 +1105,10 @@ func start_fishing(s: Dictionary) -> void:
 	var key: String = pool[randi() % pool.size()]
 	var g: String = Data.FISH[key]["game"]
 	var gi: Dictionary = Data.GAMES[g]
-	var base: float = ((1.25 if night else 0.85) + (0.25 if s["zone"] == "fondo" else 0.0)) * gi["speed"]
+	var base: float = ((1.25 if night else 0.85) + (0.25 if s["zone"] == "fondo" else 0.0)) * gi["speed"] * diff("fish_speed")
 	fishing = {
 		"spot": s, "key": key, "mut": night, "p": 0.0, "dir": 1.0, "game": g, "need": gi["hits"],
-		"speed": base, "base": base, "w": (0.1 if night else 0.15) * gi["w"], "zs": 0.0, "zdir": 1.0,
+		"speed": base, "base": base, "w": min(0.32, (0.1 if night else 0.15) * gi["w"] * diff("fish_w") * (1.25 if has_rod else 1.0)), "zs": 0.0, "zdir": 1.0,
 		"timer": 0.6, "vis": 1.0, "hits": 0, "miss": 0,
 	}
 	_new_zone()
@@ -1283,7 +1301,12 @@ func hold_value() -> int:
 	var total := 0
 	for it in items:
 		total += Data.fish_value(it["key"], it["mut"])
-	return total
+	return int(total * (1.2 if has_fridge else 1.0))
+
+
+func diff(key: String) -> float:
+	var lvl: int = int(ui.opt.get("difficulty", 1)) if ui else 1
+	return DIFF[clamp(lvl, 0, 2)][key]
 
 
 func sell_all() -> void:
@@ -1306,7 +1329,40 @@ func pay_debt() -> void:
 
 
 func engine_price() -> int:
-	return 220 if speed_lvl == 1 else 120
+	return [120, 220, 380][min(speed_lvl, 2)]
+
+
+func hull_price() -> int:
+	return 200 if hull_lvl == 0 else 340
+
+
+func buy_hull() -> void:
+	if hull_lvl < 2 and money >= hull_price():
+		money -= hull_price()
+		hull_lvl += 1
+		hull_max = 3 + hull_lvl
+		hull = hull_max
+		ui.toast("Casco reforzado: aguanta %d golpes." % hull_max)
+
+
+func buy_upgrade(what: String, price: int) -> void:
+	if money < price:
+		return
+	money -= price
+	match what:
+		"rod":
+			has_rod = true
+			ui.toast("Caña buena: el agua dorada del minijuego es más ancha.")
+		"sonar":
+			has_sonar = true
+			ui.toast("Sonar instalado: la brújula marca los bancos de peces cercanos.")
+		"foco":
+			has_foco = true
+			lamp_light.omni_range = 60
+			ui.toast("Foco de proa: más luz, y el Tibicena no se atreve a acercarse tanto.")
+		"fridge":
+			has_fridge = true
+			ui.toast("Nevera instalada: el pescado fresco se vende un 20 % más caro.")
 
 
 func hold_price() -> int:
@@ -1314,7 +1370,7 @@ func hold_price() -> int:
 
 
 func buy_engine() -> void:
-	if speed_lvl < 2 and money >= engine_price():
+	if speed_lvl < 3 and money >= engine_price():
 		money -= engine_price()
 		speed_lvl += 1
 		ui.toast("Motor mejorado.")
@@ -1391,7 +1447,8 @@ func save_game() -> void:
 		"region": region, "story": quest.to_dict(),
 		"quest_state": quest.state, "stones": quest.stones,
 		"journal": journal, "gear": gear.to_dict(),
-		"hull": hull, "weather": weather.to_dict(), "tutorial": tutorial.to_dict(),
+		"hull": hull, "weather": weather.to_dict(), "tutorial": tutorial.to_dict(), "side": side.to_dict(),
+		"upgrades": {"hull_lvl": hull_lvl, "rod": has_rod, "sonar": has_sonar, "foco": has_foco, "fridge": has_fridge},
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -1440,6 +1497,16 @@ func load_game() -> bool:
 	quest.stones = int(d.get("stones", 0))
 	journal = d.get("journal", {})
 	gear.from_dict(d.get("gear", {}))
+	var up: Dictionary = d.get("upgrades", {})
+	hull_lvl = int(up.get("hull_lvl", 0))
+	hull_max = 3 + hull_lvl
+	has_rod = bool(up.get("rod", false))
+	has_sonar = bool(up.get("sonar", false))
+	has_foco = bool(up.get("foco", false))
+	has_fridge = bool(up.get("fridge", false))
+	if has_foco:
+		lamp_light.omni_range = 60
+	side.from_dict(d.get("side", {}))
 	hull = int(d.get("hull", hull_max))
 	weather.from_dict(d.get("weather", {}))
 	# partidas de antes del tutorial: ya saben jugar
@@ -1655,7 +1722,7 @@ func _update_panic(dt: float) -> void:
 		panic = max(0.0, panic - dt * 12.0)
 	elif night:
 		var far: float = max(0.0, bz + 40.0) / 120.0
-		panic = min(100.0, panic + dt * ((0.8 * lamp_mult if lamp_on else 3.2) + far * 2.2))
+		panic = min(100.0, panic + dt * ((0.8 * lamp_mult * (0.8 if has_foco else 1.0) if lamp_on else 3.2) + far * 2.2) * diff("panic"))
 	else:
 		panic = max(0.0, panic - dt * 3.0)
 	if night and not in_port:

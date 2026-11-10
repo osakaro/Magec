@@ -114,7 +114,7 @@ func hit_rock(speed: float) -> void:
 	if hit_cooldown > 0.0:
 		return
 	hit_cooldown = 1.2
-	if abs(speed) < 2.5:
+	if abs(speed) < main.diff("rock"):
 		main.ui.toast("Rozas una roca. Cuidado.")
 		return
 	main.audio.sfx("crack")
@@ -279,12 +279,13 @@ func _process(dt: float) -> void:
 				beast.position = bpos
 				return
 			var lamp: bool = main.lamp_on
-			var speed: float = 7.0 + (0.0 if lamp else 1.5)
-			if lamp and dist < 15.0:
+			var speed: float = (7.0 + (0.0 if lamp else 1.5)) * main.diff("beast")
+			var keep_d: float = 21.0 if main.has_foco else 15.0
+			if lamp and dist < keep_d:
 				# La luz de Magec lo mantiene a raya: da vueltas sin acercarse
 				bstate = "circle"
 				var tangent := Vector3(-to_boat.z, 0, to_boat.x).normalized()
-				var push := -to_boat.normalized() * (15.0 - dist) * 0.8
+				var push := -to_boat.normalized() * (keep_d - dist) * 0.8
 				bpos += (tangent * speed * 0.8 + push) * dt
 			else:
 				bstate = "chase"
@@ -317,5 +318,5 @@ func maybe_hunt(dt: float) -> void:
 	if main.panic >= 99.0:
 		start_hunt()
 		main.panic = 75.0
-	elif not main.lamp_on and main.panic > 70.0 and randf() < dt * 0.02:
+	elif not main.lamp_on and main.panic > 70.0 and randf() < dt * 0.02 * main.diff("hunt"):
 		start_hunt()
