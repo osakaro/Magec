@@ -166,8 +166,8 @@ static func hull_mesh(white: Color, band: Color, bottom: Color) -> ArrayMesh:
 	## Casco curvo: secciones en U a lo largo del barco, con proa levantada.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var N := 18   # secciones (popa -> proa)
-	var M := 12   # puntos por sección (babor -> quilla -> estribor)
+	var N := 24   # secciones (popa -> proa)
+	var M := 36   # puntos por sección (babor -> quilla -> estribor)
 	var z_stern := 2.6
 	var z_bow := -3.5
 	var cap := Color("4a3424")
@@ -285,9 +285,10 @@ static func build_boat(parent: Node, white: Color, band: Color, bottom: Color, n
 		prev = sec
 	# roda (proa) y quilla
 	var bow := hull_section(1.0)
-	for k in 6:
-		var f := float(k) / 5.0
-		add_mesh(node, box(Vector3(0.12, 0.28, 0.14)), dark_wood, Vector3(0, lerp(-0.55, bow[2] + 0.12, f), lerp(-3.3, -3.62, f)))
+	var s0 := Vector3(0, -0.3, -3.45)
+	var s1 := Vector3(0, bow[2] + 0.1, -3.56)
+	var stem := add_mesh(node, box(Vector3(0.1, 0.1, s0.distance_to(s1))), wood, (s0 + s1) / 2.0)
+	stem.look_at_from_position((s0 + s1) / 2.0, s1, Vector3.FORWARD)
 	add_mesh(node, box(Vector3(0.12, 0.12, 5.6)), dark_wood, Vector3(0, -0.72, -0.4))
 	# timón de popa
 	add_mesh(node, box(Vector3(0.08, 0.9, 0.5)), dark_wood, Vector3(0, -0.25, 2.85))
