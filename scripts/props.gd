@@ -331,13 +331,13 @@ const WALLS := [Color("f4f1ea"), Color("f4f1ea"), Color("f2eadb"), Color("e9c27f
 const WOODS := [Color("2e6b4f"), Color("6b3f22"), Color("1d5aa6"), Color("2e6b4f"), Color("8a2b22")]
 
 
-static func house(parent: Node, pos: Vector3, w: float, d: float, h: float, rng: RandomNumberGenerator, facing := 0.0) -> void:
+static func house(parent: Node, pos: Vector3, w: float, d: float, h: float, rng: RandomNumberGenerator, facing := 0.0, wall_c := Color(0, 0, 0, 0), wood_c := Color(0, 0, 0, 0)) -> void:
 	var g := Node3D.new()
 	g.position = pos
 	g.rotation.y = facing
 	parent.add_child(g)
-	var wall := mat(WALLS[rng.randi() % WALLS.size()], 0.9)
-	var wood := mat(WOODS[rng.randi() % WOODS.size()], 0.7)
+	var wall := mat(wall_c if wall_c.a > 0.0 else WALLS[rng.randi() % WALLS.size()], 0.9)
+	var wood := mat(wood_c if wood_c.a > 0.0 else WOODS[rng.randi() % WOODS.size()], 0.7)
 	var dark := mat(Color("1b1a1a"), 0.4)
 	add_mesh(g, box(Vector3(w, h + 3.0, d)), wall, Vector3(0, (h - 3.0) / 2.0, 0))
 	# pretil de la azotea
@@ -399,3 +399,91 @@ static func church(parent: Node, pos: Vector3) -> void:
 	cup.radial_segments = 4
 	add_mesh(t, cup, roof, Vector3(0, 16.7, 0), Vector3(0, PI / 4, 0))
 	add_mesh(t, cyl(0.05, 0.05, 1.4, 4), stone, Vector3(0, 18.6, 0))
+
+
+static func pine_mesh() -> ArrayMesh:
+	## Pino canario: tronco alto y copas verdes en pisos.
+	var st := SurfaceTool.new()
+	st.append_from(cyl(0.15, 0.3, 7.0, 6), 0, Transform3D(Basis(), Vector3(0, 3.5, 0)))
+	var c := SphereMesh.new()
+	c.radial_segments = 7
+	c.rings = 4
+	for i in 4:
+		var r := 1.6 - i * 0.25
+		c.radius = r
+		c.height = r * 0.9
+		st.append_from(c, 0, Transform3D(Basis(), Vector3(cos(i * 2.0) * 0.4, 4.0 + i * 1.2, sin(i * 2.0) * 0.4)))
+	return st.commit()
+
+
+static func sabina_mesh() -> ArrayMesh:
+	## Sabina de El Hierro: tronco retorcido doblado por el viento y copa plana.
+	var st := SurfaceTool.new()
+	var seg := cyl(0.14, 0.2, 1.2, 6)
+	var p := Vector3.ZERO
+	for i in 4:
+		var b := Basis(Vector3(0, 0, 1), -0.35 * (i + 1))
+		st.append_from(seg, 0, Transform3D(b, p + b * Vector3(0, 0.6, 0)))
+		p += b * Vector3(0, 1.2, 0)
+	var c := SphereMesh.new()
+	c.radial_segments = 8
+	c.rings = 4
+	c.radius = 1.4
+	c.height = 0.9
+	st.append_from(c, 0, Transform3D(Basis().scaled(Vector3(1.6, 1, 1)), p + Vector3(0.6, 0, 0)))
+	return st.commit()
+
+
+static func banana_mesh() -> ArrayMesh:
+	## Platanera: hojas grandes en abanico.
+	var st := SurfaceTool.new()
+	st.append_from(cyl(0.12, 0.16, 2.0, 6), 0, Transform3D(Basis(), Vector3(0, 1.0, 0)))
+	var leaf := BoxMesh.new()
+	leaf.size = Vector3(0.5, 0.04, 2.0)
+	for i in 6:
+		var b := Basis(Vector3.UP, i * TAU / 6.0) * Basis(Vector3.RIGHT, -0.6)
+		st.append_from(leaf, 0, Transform3D(b, Vector3(0, 2.0, 0) + b * Vector3(0, 0, -0.9)))
+	return st.commit()
+
+
+static func ghost_ship(parent: Node, dark := false) -> Node3D:
+	## Barco fantasma: galeón viejo, translúcido y con faroles verdes.
+	## Con dark = true es el galeón negro de Don Baltasar, con faroles rojos.
+	var g := Node3D.new()
+	parent.add_child(g)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.08, 0.07, 0.07, 1.0) if dark else Color(0.6, 0.85, 0.72, 0.7)
+	wood.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED if dark else BaseMaterial3D.TRANSPARENCY_ALPHA
+	wood.emission_enabled = true
+	wood.emission = Color(0.25, 0.04, 0.03) if dark else Color(0.25, 0.8, 0.55)
+	wood.emission_energy_multiplier = 0.5 if dark else 1.6
+	wood.set("disable_fog", true)
+	var sail := wood.duplicate()
+	sail.albedo_color = Color(0.85, 0.95, 0.9, 0.35)
+	sail.cull_mode = BaseMaterial3D.CULL_DISABLED
+	add_mesh(g, box(Vector3(4.0, 2.4, 14.0)), wood, Vector3(0, 0.8, 0))
+	add_mesh(g, box(Vector3(4.4, 1.8, 3.5)), wood, Vector3(0, 2.6, 5.0))
+	var bow := PrismMesh.new()
+	bow.size = Vector3(4.0, 3.5, 2.4)
+	add_mesh(g, bow, wood, Vector3(0, 0.8, -8.5), Vector3(-PI / 2, 0, 0))
+	for z in [-4.0, 1.0, 5.0]:
+		add_mesh(g, cyl(0.12, 0.16, 12.0, 6), wood, Vector3(0, 7.0, z))
+		var sl := BoxMesh.new()
+		sl.size = Vector3(5.0, 4.0, 0.05)
+		add_mesh(g, sl, sail, Vector3(0, 7.5, z), Vector3(0.1, 0, 0))
+	var lm := StandardMaterial3D.new()
+	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lm.albedo_color = Color(1.0, 0.25, 0.15) if dark else Color(0.5, 1.0, 0.7)
+	lm.set("disable_fog", true)
+	var lamp := SphereMesh.new()
+	lamp.radius = 0.3
+	lamp.height = 0.6
+	for pz in [-6.5, 6.5]:
+		add_mesh(g, lamp, lm, Vector3(0, 3.2, pz))
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.25, 0.15) if dark else Color(0.4, 1.0, 0.6)
+	l.light_energy = 4.0
+	l.omni_range = 45
+	l.position = Vector3(0, 5, 0)
+	g.add_child(l)
+	return g

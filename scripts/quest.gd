@@ -12,6 +12,8 @@ extends Node
 
 const Boss = preload("res://scripts/boss.gd")
 const Data = preload("res://scripts/data.gd")
+const Isles = preload("res://scripts/isles.gd")
+const Finale = preload("res://scripts/finale.gd")
 
 var main
 
@@ -24,7 +26,11 @@ const LOST_POS := Vector2(-135, 105)       # Tomasín, perdido en la niebla (La 
 
 # Orden de la historia (para saber qué islas están abiertas)
 const ORDER := ["talk1", "stone", "return", "guayota", "guayota_back", "go_gc", "gc_armador", "gc_yaiza",
-	"gc_stone", "gc_return", "gc_done", "lg_silbo", "lg_lost", "lg_stone", "lg_return", "lg_done"]
+	"gc_stone", "gc_return", "gc_done", "lg_silbo", "lg_lost", "lg_stone", "lg_return", "lg_done",
+	"lz_stone", "lz_return", "lz_done", "fv_ghost", "fv_stone", "fv_return", "fv_done",
+	"lp_remo", "lp_stone", "lp_return", "lp_done", "eh_calm", "eh_island", "end"]
+
+const PORT_NPC := {"lanzarote": "Marcial", "fuerteventura": "Saro", "la_palma": "Elena", "el_hierro": "Bentor el farero"}
 
 var state := "talk1"
 var stones := 0
@@ -32,6 +38,9 @@ var pancho := "intro"     # intro -> wait -> done
 var met_nieves := false
 var mutants_sold := 0
 var silbo_learned := false
+var bitacora := false
+var isles
+var finale
 var echo_time := 0.0          # cuánto dura la marca del eco en la brújula
 var echo_bearing := 0.0
 var whistle_cd := 0.0
@@ -236,9 +245,20 @@ func _ready() -> void:
 	elif main.region == "gran_canaria":
 		_build_lighthouse()
 		_build_baltasar()
-	else:
+	elif main.region == "la_gomera":
 		_person(Vector3(-1.4, 1.2, -60.0), Color("5a4a3a"), Color("b98a6a"), Color("e8e0c8"))
 		_build_tomasin()
+	else:
+		_person(Vector3(-1.4, 1.2, -60.0), Color("3a4a5a"), Color("c49270"), Color("2b2b2b"))
+	isles = Isles.new()
+	isles.main = main
+	isles.quest = self
+	main.add_child(isles)
+	if main.region == "el_hierro":
+		finale = Finale.new()
+		finale.main = main
+		finale.quest = self
+		main.add_child(finale)
 	_build_stone_spot()
 
 
@@ -416,6 +436,8 @@ func _build_stone_spot() -> void:
 
 
 func stone_pos() -> Vector2:
+	if isles and isles.handles():
+		return isles.stone_pos()
 	match main.region:
 		"tenerife":
 			return STONE_TF
@@ -442,8 +464,14 @@ func _gc_state() -> bool:
 
 func objective() -> String:
 	var gk := goal_island_key()
+	if state == "end":
+		return "Fin de la historia. Puedes seguir pescando por las islas."
 	if gk != main.region and Data.REGIONS.has(gk):
 		return "Viaja a %s desde el puerto." % Data.REGIONS[gk]["name"]
+	if isles and isles.handles() and isles.objective() != "":
+		return isles.objective()
+	if finale and finale.objective() != "":
+		return finale.objective()
 	match main.region:
 		"tenerife":
 			match state:
@@ -479,15 +507,21 @@ func objective() -> String:
 					return "Lleva la piedra a Isidro, en el muelle."
 	if pancho == "wait" and _in_tf():
 		return "Pancho el Viejo quiere una vieja normal. Tiene una historia de tu abuelo."
-	var nxt: String = "Lanzarote (próximamente)" if state == "lg_done" else Data.REGIONS.get(gk, {"name": "?"})["name"]
+	var nxt: String = Data.REGIONS.get(gk, {"name": "San Borondón"})["name"]
 	return "Piedras de Magec: %d/7 · Próximo destino: %s" % [stones, nxt]
 
 
 func target() -> Variant:
 	var night: bool = main.is_night()
 	var gk := goal_island_key()
+	if state == "end":
+		return null
 	if gk != main.region and Data.REGIONS.has(gk):
 		return Vector2(0, -58)
+	if isles and isles.handles():
+		return isles.target()
+	if finale:
+		return finale.target()
 	match main.region:
 		"tenerife":
 			match state:
@@ -521,8 +555,16 @@ func goal_island_key() -> String:
 		return "gran_canaria"
 	if p >= prog("gc_done") and p < prog("lg_done"):
 		return "la_gomera"
-	if p >= prog("lg_done"):
+	if p >= prog("lg_done") and p < prog("lz_done"):
 		return "lanzarote"
+	if p >= prog("lz_done") and p < prog("fv_done"):
+		return "fuerteventura"
+	if p >= prog("fv_done") and p < prog("lp_done"):
+		return "la_palma"
+	if p >= prog("lp_done") and p < prog("end"):
+		return "el_hierro"
+	if p >= prog("end"):
+		return main.region
 	return "tenerife"
 
 
@@ -541,6 +583,8 @@ func near(p: Vector2, r: float) -> bool:
 func hint() -> String:
 	if boss and boss.hint() != "":
 		return boss.hint()
+	if finale and finale.hint() != "":
+		return finale.hint()
 	if main.region == "la_gomera" and state == "lg_lost" and near(_tomasin_pos(), 12.0):
 		return "[color=#f2b33d]E[/color] · Hablar con Tomasín"
 	if _in_tf() and near(CHAX_SPOT, 10.0):
@@ -553,6 +597,8 @@ func hint() -> String:
 
 
 func _stone_active() -> bool:
+	if isles and isles.handles():
+		return isles.stone_active()
 	if not main.is_night():
 		return false
 	match main.region:
@@ -567,6 +613,8 @@ func _stone_active() -> bool:
 
 func try_interact() -> bool:
 	if boss and boss.try_interact():
+		return true
+	if finale and finale.try_interact():
 		return true
 	if _in_tf() and near(CHAX_SPOT, 10.0):
 		match state:
@@ -625,10 +673,12 @@ func got_stone() -> void:
 			state = "gc_return"
 		"la_gomera":
 			state = "lg_return"
+		_:
+			isles.got_stone()
 	main.panic = min(100.0, main.panic + 20.0)
 	main.audio.sfx("stone", -4.0, 0.7)
 	main.ui.toast("Has sacado la Piedra de Magec. Está fría como el fondo del mar.")
-	if not _in_tf():
+	if main.region in ["gran_canaria", "la_gomera"]:
 		# El guardián de la piedra sale a por ti
 		main.hazards.cooldown = 0.0
 		main.hazards.start_hunt()
@@ -651,9 +701,16 @@ func port_people() -> Array:
 			out.append(["Don Baltasar", "Armador del Puerto de La Luz.", _talk_baltasar])
 		"la_gomera":
 			out.append(["Isidro el silbador", "Un viejo de Hermigua que habla silbando.", _talk_isidro])
+		"el_hierro":
+			out.append(["Bentor el farero", "Cuida el faro de Orchilla, donde se acaba el mundo conocido.", func(): finale.talk_port()])
+		_:
+			if isles.handles():
+				out.append([isles.cfg()["npc"], isles.cfg()["desc"], func(): isles.talk()])
 	# viajes a las islas ya abiertas
-	var open := {"tenerife": true, "gran_canaria": prog() >= prog("go_gc"), "la_gomera": prog() >= prog("gc_done")}
-	for k in ["tenerife", "gran_canaria", "la_gomera"]:
+	var open := {"tenerife": true, "gran_canaria": prog() >= prog("go_gc"), "la_gomera": prog() >= prog("gc_done"),
+		"lanzarote": prog() >= prog("lg_done"), "fuerteventura": prog() >= prog("lz_done"),
+		"la_palma": prog() >= prog("fv_done"), "el_hierro": prog() >= prog("lp_done")}
+	for k in ["tenerife", "gran_canaria", "la_gomera", "lanzarote", "fuerteventura", "la_palma", "el_hierro"]:
 		if open[k] and k != main.region:
 			var dest: String = k
 			out.append(["Viajar a " + Data.REGIONS[k]["name"], "Unas 5 horas de travesía hasta " + Data.REGIONS[k]["port"] + ".", func(): main.travel(dest)])
@@ -882,6 +939,9 @@ func _show() -> void:
 			"pay":
 				main.money += 60
 				main.ui.toast("Pancho te da 60 €.")
+			_:
+				if finale:
+					finale.on_event(l[2])
 	main.ui.show_dialogue(l[0], l[1], line_i, lines.size())
 
 
@@ -931,7 +991,12 @@ func _process(dt: float) -> void:
 # =====================================================================
 
 func to_dict() -> Dictionary:
-	return {"pancho": pancho, "met_nieves": met_nieves, "mutants_sold": mutants_sold, "silbo": silbo_learned}
+	var d := {"pancho": pancho, "met_nieves": met_nieves, "mutants_sold": mutants_sold, "silbo": silbo_learned, "bitacora": bitacora}
+	if isles:
+		d["isles"] = isles.to_dict()
+	if finale:
+		d["finale"] = finale.to_dict()
+	return d
 
 
 func from_dict(d: Dictionary) -> void:
@@ -939,6 +1004,11 @@ func from_dict(d: Dictionary) -> void:
 	met_nieves = bool(d.get("met_nieves", false))
 	mutants_sold = int(d.get("mutants_sold", 0))
 	silbo_learned = bool(d.get("silbo", false))
+	bitacora = bool(d.get("bitacora", false))
+	if isles:
+		isles.from_dict(d.get("isles", {}))
+	if finale:
+		finale.from_dict(d.get("finale", {}))
 	# Partidas antiguas: "done" pasaba directamente al final de la misión 1
 	if state == "done":
 		state = "guayota"

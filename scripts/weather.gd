@@ -52,7 +52,13 @@ func _ready() -> void:
 
 
 func _pick() -> String:
-	var wts: Dictionary = WEIGHTS_LG if main.region == "la_gomera" else WEIGHTS
+	var wts: Dictionary = WEIGHTS
+	if main.region == "la_gomera":
+		wts = WEIGHTS_LG
+	elif main.region == "fuerteventura":
+		wts = {"despejado": 35, "calima": 45, "lluvia": 5, "picada": 15, "niebla": 0}
+	elif main.region == "el_hierro":
+		wts = {"despejado": 70, "calima": 5, "lluvia": 10, "picada": 0, "niebla": 15}
 	var total := 0
 	for k in wts:
 		total += wts[k]

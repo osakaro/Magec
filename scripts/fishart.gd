@@ -27,6 +27,27 @@ const STYLE := {
 	"pejeperro": {"top": "c63f2a", "belly": "eaa45a", "h": 0.4, "hump": 0.15, "pattern": "spots", "pc": "f2d050", "fin": "d0603a", "tail": "round", "eye": 0.9, "snout": true},
 	"cabrilla": {"top": "8a5a38", "belly": "e2c8a0", "h": 0.36, "pattern": "vbars", "pc": "5a3420", "fin": "a67250", "tail": "round", "eye": 1.1, "orange_lines": true},
 	"bicuda": {"top": "7d8c94", "belly": "e6ecee", "h": 0.18, "pattern": "vbars", "pc": "4f5c64", "fin": "9aa8ae", "tail": "fork", "eye": 0.9, "bigmouth": true, "teeth": true},
+	"catalufa": {"top": "b8231c", "belly": "e86a50", "h": 0.42, "pattern": "none", "pc": "000000", "fin": "d0402e", "tail": "round", "eye": 2.1},
+	"gallo": {"top": "5d6c74", "belly": "9aa6a8", "h": 0.6, "hump": 0.15, "pattern": "spots", "pc": "3a4850", "fin": "4a5860", "tail": "lunate", "eye": 0.9, "trigger": true},
+	"salmonete": {"top": "c9483a", "belly": "f0b8a0", "h": 0.3, "pattern": "hstripes", "pc": "e8c040", "fin": "e07a60", "tail": "fork", "eye": 1.1, "barbels": true},
+	"corvina": {"top": "7a786a", "belly": "d8d6c8", "h": 0.32, "pattern": "line", "pc": "5a5a50", "fin": "8a8270", "tail": "round", "eye": 0.9},
+	"rascacio": {"top": "a8452e", "belly": "e0a080", "h": 0.42, "pattern": "blotch", "pc": "6a2a18", "fin": "b85a3a", "tail": "round", "eye": 1.0, "spiny": true, "bigmouth": true},
+	"burro": {"top": "8a8a82", "belly": "dcdcd2", "h": 0.4, "pattern": "hstripes", "pc": "5a5a54", "fin": "7a7a72", "tail": "fork", "eye": 1.0},
+	"conejo": {"top": "2a292c", "belly": "4a484c", "h": 0.2, "pattern": "line", "pc": "6a686c", "fin": "1e1d20", "tail": "fork", "eye": 1.4, "bigmouth": true, "teeth": true},
+	"rabil": {"top": "1f3a5c", "belly": "e2e6ea", "h": 0.32, "pattern": "band", "pc": "e3c33c", "fin": "e3c33c", "tail": "lunate", "eye": 0.8, "finlets": true},
+	"patudo": {"top": "1a3050", "belly": "dfe3e8", "h": 0.36, "pattern": "none", "pc": "000000", "fin": "2a4a6a", "tail": "lunate", "eye": 1.5, "finlets": true},
+	"peto": {"top": "2e5c74", "belly": "e2eaee", "h": 0.16, "pattern": "vbars", "pc": "3a6aa0", "fin": "2a5068", "tail": "lunate", "eye": 0.8, "bigmouth": true},
+	"picudo": {"top": "17355a", "belly": "e2e8ee", "h": 0.22, "pattern": "vbars", "pc": "6aa0d8", "fin": "1e3f66", "tail": "lunate", "eye": 0.8, "bill": true, "sail": true},
+	"dorado": {"top": "3a9a5a", "belly": "e8d040", "h": 0.3, "hump": 0.45, "pattern": "spots", "pc": "2a6a9a", "fin": "3a8a7a", "tail": "fork", "eye": 0.9},
+	"abadejo": {"top": "6a5a3a", "belly": "b8a880", "h": 0.36, "pattern": "blotch", "pc": "3a3020", "fin": "5a4a30", "tail": "round", "eye": 0.9, "bigmouth": true},
+	"murion": {"kind": "eel", "top": "2e2820", "belly": "6a5a40", "pattern": "spots", "pc": "c9b06a"},
+	"pez_remo": {"kind": "oarfish", "top": "c9ced2", "belly": "eef0f2"},
+	"choco": {"kind": "cuttle", "top": "a88a6a", "belly": "e0cfb4"},
+	"pota": {"kind": "squid", "top": "d98a7a", "belly": "f3c8bc"},
+	"chucho": {"kind": "ray", "top": "7a6a52", "belly": "d8ccb4", "tailspine": true},
+	"mantelina": {"kind": "ray", "top": "8a7a5a", "belly": "e0d4bc", "wide": true},
+	"angelote": {"kind": "angel", "top": "9a8a6a", "belly": "e0d8c4"},
+	"pez_luna": {"kind": "sunfish", "top": "9aa4a8", "belly": "dfe4e6"},
 	"morena": {"kind": "eel", "top": "5d4a22", "belly": "a48a4a", "pattern": "spots", "pc": "d9c27a"},
 	"pulpo": {"kind": "octopus", "top": "a6584d", "belly": "d9938a"},
 	"calamar": {"kind": "squid", "top": "d9a3a0", "belly": "f3d8d2"},
@@ -63,6 +84,16 @@ static func draw(ci: CanvasItem, rect: Rect2, key: String, mut: bool, vertical :
 			_octopus(ci, o, w, h, st, mut, silhouette)
 		"squid":
 			_squid(ci, o, w, h, st, mut, silhouette)
+		"cuttle":
+			_squid(ci, o, w, h, st, mut, silhouette, true)
+		"ray":
+			_ray(ci, o, w, h, st, key, mut, silhouette)
+		"angel":
+			_angel(ci, o, w, h, st, mut, silhouette)
+		"sunfish":
+			_sunfish(ci, o, w, h, st, mut, silhouette)
+		"oarfish":
+			_oarfish(ci, o, w, h, st, mut, silhouette)
 		_:
 			_fish(ci, o, w, h, st, key, mut, silhouette)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
@@ -216,6 +247,29 @@ static func _fish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary
 			for i in range(3, upper.size() - 3):
 				pts.append(upper[i].lerp(lower[i], f))
 			ci.draw_polyline(pts, Color("e08a3a"), max(1.0, H * 0.035), true)
+	if st.get("barbels", false):
+		var bb := Vector2(x0 + L * 0.04, cy + H * 0.22)
+		var blen := L * (0.4 if mut else 0.12)
+		ci.draw_line(bb, bb + Vector2(blen * 0.4, blen * 0.5), Color("e8d0a0"), 1.5, true)
+		ci.draw_line(bb + Vector2(2, 0), bb + Vector2(blen * 0.6, blen * 0.45), Color("e8d0a0"), 1.5, true)
+	if st.get("trigger", false):
+		ci.draw_line(upper[5], upper[5] + Vector2(-L * 0.02, -H * 0.4), top.darkened(0.4), 3.0, true)
+	if st.get("spiny", false):
+		for i in range(4, 15):
+			ci.draw_line(upper[i], upper[i] + Vector2(L * 0.01, -H * 0.42), (Color("ff6a2a") if mut else top.darkened(0.35)), 1.5, true)
+	if st.get("finlets", false):
+		for k in 6:
+			var u := 0.68 + k * 0.045
+			var i := int(u * 24)
+			ci.draw_colored_polygon(PackedVector2Array([upper[i], upper[i] + Vector2(L * 0.02, -H * 0.12), upper[i] + Vector2(L * 0.03, 0)]), Color("e3c33c"))
+			ci.draw_colored_polygon(PackedVector2Array([lower[i], lower[i] + Vector2(L * 0.02, H * 0.12), lower[i] + Vector2(L * 0.03, 0)]), Color("e3c33c"))
+	if st.get("bill", false):
+		ci.draw_colored_polygon(PackedVector2Array([upper[0] + Vector2(2, H * 0.3), Vector2(o.x - w * 0.02, cy - H * 0.02), upper[0] + Vector2(2, H * 0.42)]), (Color("101010") if mut else top.darkened(0.2)))
+	if st.get("sail", false):
+		var sail := PackedVector2Array([upper[4], upper[7] + Vector2(0, -H * 1.3), upper[12] + Vector2(0, -H * 0.9), upper[15]])
+		ci.draw_colored_polygon(sail, Color(Color("1e3f66"), 0.85))
+		for i in range(5, 15, 2):
+			ci.draw_line(upper[i], upper[i] + Vector2(0, -H * 0.9 * sin(PI * (i - 4) / 11.0)), Color("6aa0d8", 0.7), 1.0, true)
 	if st.get("teeth", false):
 		for k in 4:
 			var tp := Vector2(x0 + 2 + k * L * 0.018, cy + H * 0.08)
@@ -452,7 +506,7 @@ static func _octopus(ci: CanvasItem, o: Vector2, w: float, h: float, st: Diction
 		ci.draw_circle(hc + Vector2(-R * 0.4 + i * R * 0.2, -R * 0.45), R * 0.06, col.darkened(0.25))
 
 
-static func _squid(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary, mut: bool, sil: bool) -> void:
+static func _squid(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary, mut: bool, sil: bool, cuttle := false) -> void:
 	var col := _c(st["top"], mut)
 	if sil:
 		col = Color(0.18, 0.15, 0.13, 0.55)
@@ -460,7 +514,20 @@ static func _squid(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionar
 	var x_tip := o.x + w * 0.95
 	var x_head := o.x + w * 0.42
 	var R: float = min(h * 0.26, w * 0.12)
+	if cuttle:
+		x_tip = o.x + w * 0.8
+		R *= 1.35
 	var mantle := PackedVector2Array([Vector2(x_head, cy - R), Vector2(x_tip - w * 0.12, cy - R * 0.7), Vector2(x_tip, cy), Vector2(x_tip - w * 0.12, cy + R * 0.7), Vector2(x_head, cy + R)])
+	if cuttle and not sil:
+		# faldón de aleta alrededor del manto
+		var skirt := PackedVector2Array()
+		for i in 21:
+			var u := float(i) / 20.0
+			skirt.append(Vector2(lerp(x_head, x_tip, u), cy - R * (1.15 - u * 0.5)))
+		for i in range(20, -1, -1):
+			var u := float(i) / 20.0
+			skirt.append(Vector2(lerp(x_head, x_tip, u), cy + R * (1.15 - u * 0.5)))
+		ci.draw_colored_polygon(skirt, Color(col.lightened(0.15), 0.8))
 	ci.draw_colored_polygon(PackedVector2Array([Vector2(x_tip - w * 0.2, cy), Vector2(x_tip - w * 0.06, cy - R * 1.5), Vector2(x_tip, cy), Vector2(x_tip - w * 0.06, cy + R * 1.5)]), col.darkened(0.1))
 	for k in 8:
 		var pts := PackedVector2Array()
@@ -480,3 +547,143 @@ static func _squid(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionar
 	var ep := Vector2(x_head - R * 0.15, cy - R * 0.25)
 	ci.draw_circle(ep, R * 0.3, Color("f2ecdc"))
 	ci.draw_circle(ep, R * 0.17, Color("b3140c") if mut else Color("101010"))
+
+
+# ---------------------------------------------------------------------
+static func _ray(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary, key: String, mut: bool, sil: bool) -> void:
+	## Raya vista desde arriba: rombo con alas y cola fina.
+	var top := _c(st["top"], mut)
+	if sil:
+		top = Color(0.18, 0.15, 0.13, 0.55)
+	if mut and key == "mantelina":
+		top = Color("161414")
+	var c := Vector2(o.x + w * 0.38, o.y + h * 0.5)
+	var ww: float = min(w * (0.36 if st.get("wide", false) else 0.3), h * 0.9)
+	var hh: float = min(h * 0.38, ww * 0.75)
+	var flap: float = sin(anim * 4.0) * hh * 0.12 if anim >= 0.0 else 0.0
+	var body := PackedVector2Array()
+	for i in 32:
+		var a := TAU * i / 32.0
+		var r := 1.0 + 0.25 * cos(a * 2.0)
+		body.append(c + Vector2(cos(a) * ww * 0.85 * (1.0 if cos(a) > 0 else 0.7), sin(a) * hh * r + (flap if abs(sin(a)) > 0.7 else 0.0)))
+	# cola
+	var tail_end := c + Vector2(w * 0.58, 0)
+	ci.draw_line(c + Vector2(ww * 0.5, 0), tail_end, top.darkened(0.2), max(2.0, hh * 0.08), true)
+	if st.get("tailspine", false):
+		ci.draw_line(tail_end - Vector2(w * 0.18, 0), tail_end - Vector2(w * 0.12, -hh * 0.12), Color("e8dcc0"), 2.0, true)
+		if mut:
+			ci.draw_line(tail_end - Vector2(w * 0.12, 0), tail_end - Vector2(w * 0.06, hh * 0.14), Color("e8dcc0"), 2.0, true)
+	if sil:
+		ci.draw_colored_polygon(body, top)
+		return
+	var cols := PackedColorArray()
+	for p in body:
+		var d := (p - c).length() / ww
+		cols.append(top.lightened(0.1).lerp(top.darkened(0.25), clamp(d, 0.0, 1.0)))
+	ci.draw_polygon(body, cols)
+	for i in 9:
+		ci.draw_circle(c + Vector2(cos(i * 2.1) * ww * 0.4, sin(i * 1.7) * hh * 0.5), hh * 0.06, Color(top.darkened(0.4), 0.6))
+	for sx in [-1.0, 1.0]:
+		var e := c + Vector2(-ww * 0.25, sx * hh * 0.18)
+		ci.draw_circle(e, max(1.5, hh * 0.07), Color("f2ecd0"))
+		ci.draw_circle(e, max(1.0, hh * 0.04), Color("b3140c") if mut else Color("101010"))
+	ci.draw_polyline(body + PackedVector2Array([body[0]]), Color(top.darkened(0.5), 0.8), 1.2, true)
+
+
+static func _angel(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary, mut: bool, sil: bool) -> void:
+	## Angelote: tiburón aplanado con aletas pectorales anchas, visto desde arriba.
+	var top := _c(st["top"], mut)
+	if sil:
+		top = Color(0.18, 0.15, 0.13, 0.55)
+	var cy := o.y + h * 0.5
+	var x0 := o.x + w * 0.06
+	var L := w * 0.86
+	var hh: float = min(h * 0.4, L * 0.22)
+	var body := PackedVector2Array([
+		Vector2(x0, cy), Vector2(x0 + L * 0.08, cy - hh * 0.55), Vector2(x0 + L * 0.2, cy - hh * 0.6),
+		Vector2(x0 + L * 0.3, cy - hh * 1.0), Vector2(x0 + L * 0.42, cy - hh * 0.5), Vector2(x0 + L * 0.85, cy - hh * 0.15),
+		Vector2(x0 + L, cy - hh * 0.35), Vector2(x0 + L * 0.96, cy), Vector2(x0 + L, cy + hh * 0.35),
+		Vector2(x0 + L * 0.85, cy + hh * 0.15), Vector2(x0 + L * 0.42, cy + hh * 0.5), Vector2(x0 + L * 0.3, cy + hh * 1.0),
+		Vector2(x0 + L * 0.2, cy + hh * 0.6), Vector2(x0 + L * 0.08, cy + hh * 0.55)])
+	ci.draw_colored_polygon(body, top)
+	if sil:
+		return
+	for i in 12:
+		ci.draw_circle(Vector2(x0 + L * (0.15 + 0.06 * i), cy + sin(i * 2.3) * hh * 0.35), hh * 0.06, Color(top.lightened(0.3), 0.7))
+	for sx in [-1.0, 1.0]:
+		var e := Vector2(x0 + L * 0.09, cy + sx * hh * 0.25)
+		ci.draw_circle(e, max(1.5, hh * 0.08), Color("f2ecd0"))
+		ci.draw_circle(e, max(1.0, hh * 0.045), Color("b3140c") if mut else Color("101010"))
+	if mut:
+		for sx in [-1.0, 1.0]:
+			var e2 := Vector2(x0 + L * 0.2, cy + sx * hh * 0.25)
+			ci.draw_circle(e2, max(1.5, hh * 0.08), Color("f2ecd0"))
+			ci.draw_circle(e2, max(1.0, hh * 0.045), Color("b3140c"))
+	ci.draw_polyline(body + PackedVector2Array([body[0]]), Color(top.darkened(0.5), 0.8), 1.2, true)
+
+
+static func _sunfish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary, mut: bool, sil: bool) -> void:
+	## Pez luna: cuerpo redondo y alto, sin cola, con dos aletas largas.
+	var top := _c(st["top"], mut, 0.2)
+	if sil:
+		top = Color(0.18, 0.15, 0.13, 0.55)
+	var c := Vector2(o.x + w * 0.45, o.y + h * 0.5)
+	var r: float = min(w * 0.28, h * 0.36)
+	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.1, -r * 0.8), c + Vector2(r * 0.25, -r * 1.8), c + Vector2(r * 0.4, -r * 0.7)]), top.darkened(0.15))
+	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.1, r * 0.8), c + Vector2(r * 0.25, r * 1.8), c + Vector2(r * 0.4, r * 0.7)]), top.darkened(0.15))
+	var body := PackedVector2Array()
+	for i in 30:
+		var a := TAU * i / 30.0
+		body.append(c + Vector2(cos(a) * r * (1.15 if cos(a) < 0 else 0.95), sin(a) * r))
+	body.append(c + Vector2(r * 1.15, r * 0.3))
+	body.append(c + Vector2(r * 1.15, -r * 0.3))
+	if sil:
+		ci.draw_colored_polygon(body, top)
+		return
+	var cols := PackedColorArray()
+	for p in body:
+		cols.append(top.darkened(0.2).lerp(_c(st["belly"], mut, 0.2), clamp((p.y - (c.y - r)) / (2.0 * r), 0.0, 1.0)))
+	ci.draw_polygon(body, cols)
+	if mut:
+		var half := PackedVector2Array()
+		for i in 16:
+			var a := -PI / 2 + PI * i / 15.0
+			half.append(c + Vector2(cos(a) * r * 0.95, sin(a) * r))
+		ci.draw_colored_polygon(half, Color(0.05, 0.05, 0.06, 0.85))
+	var e := c + Vector2(-r * 0.75, -r * 0.2)
+	ci.draw_circle(e, r * 0.1, Color("f2ecd0"))
+	ci.draw_circle(e, r * 0.06, Color("b3140c") if mut else Color("101010"))
+	ci.draw_circle(c + Vector2(-r * 1.08, r * 0.05), r * 0.05, Color("2a1a14"))
+
+
+static func _oarfish(ci: CanvasItem, o: Vector2, w: float, h: float, st: Dictionary, mut: bool, sil: bool) -> void:
+	## Pez remo: cinta plateada larguísima con cresta roja.
+	var top := _c(st["top"], mut, 0.15)
+	if sil:
+		top = Color(0.18, 0.15, 0.13, 0.55)
+	var cy := o.y + h * 0.55
+	var n := 40
+	var th: float = min(h * 0.16, w * 0.04)
+	var up := PackedVector2Array()
+	var lo := PackedVector2Array()
+	for i in n + 1:
+		var u := float(i) / n
+		var y := cy + sin(u * 9.0 + (anim * 3.0 if anim >= 0.0 else 0.0)) * h * 0.1
+		var t: float = th * (1.0 - u * 0.7)
+		up.append(Vector2(o.x + w * (0.03 + u * 0.95), y - t))
+		lo.append(Vector2(o.x + w * (0.03 + u * 0.95), y + t))
+	var crest := Color("ff4a1a") if mut else Color("d9332a")
+	if not sil:
+		for i in range(0, n, 1):
+			ci.draw_line(up[i], up[i] + Vector2(0, -th * (2.6 if i < 4 else 0.9)), crest, 1.6, true)
+	var body := up.duplicate()
+	for i in range(n, -1, -1):
+		body.append(lo[i])
+	ci.draw_colored_polygon(body, top)
+	if sil:
+		return
+	for i in range(2, n, 3):
+		ci.draw_line(up[i].lerp(lo[i], 0.3), up[i].lerp(lo[i], 0.7), Color(0.3, 0.35, 0.4, 0.5), 1.0, true)
+	var e := up[1].lerp(lo[1], 0.4)
+	ci.draw_circle(e, max(1.5, th * 0.3), Color("f2ecd0"))
+	ci.draw_circle(e, max(1.0, th * 0.17), Color("b3140c") if mut else Color("101010"))

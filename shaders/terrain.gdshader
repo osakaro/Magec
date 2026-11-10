@@ -6,7 +6,8 @@ render_mode diffuse_burley;
 
 uniform sampler2D detail : filter_linear_mipmap, repeat_enable;
 uniform float snow_line = 115.0;
-uniform float green = 0.0;   // 0 = isla seca, 1 = isla verde (La Gomera)
+uniform float green = 0.0;
+uniform float glow = 0.0;    // brillo propio (San Borondón)   // 0 = isla seca, 1 = isla verde (La Gomera)
 uniform vec3 sand : source_color = vec3(0.10, 0.09, 0.085);
 uniform vec3 basalt : source_color = vec3(0.16, 0.13, 0.115);
 uniform vec3 earth : source_color = vec3(0.36, 0.24, 0.16);
@@ -39,5 +40,6 @@ void fragment() {
 	c = mix(c, snow, smoothstep(snow_line - 8.0, snow_line + 6.0, wpos.y + (n2 - 0.5) * 18.0) * (1.0 - smoothstep(0.55, 0.85, slope)));
 	c *= 0.82 + 0.36 * n3;
 	ALBEDO = c;
+	EMISSION = c * glow + vec3(0.1, 0.35, 0.18) * glow * 0.6;
 	ROUGHNESS = mix(0.95, 0.55, beach * (1.0 - smoothstep(-0.2, 0.6, wpos.y)));
 }

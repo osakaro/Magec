@@ -33,8 +33,12 @@ Lista de pasos a seguir, en orden de prioridad. Se marca con [x] lo que ya está
 - [x] Más personajes en Güímar: Pancho el Viejo (misión de la vieja) y Nieves la pescadera
 - [x] Portada con carta náutica de Canarias
 - [x] La Gomera: niebla, silbo gomero (Isidro), Tomasín perdido, tercera piedra, 6 peces nuevos
-- [ ] Resto de islas (Lanzarote, La Graciosa, Fuerteventura, La Palma, El Hierro)
-- [ ] San Borondón, Aridane y los tres finales (el final malo depende de los mutantes vendidos a Baltasar)
+- [x] Lanzarote y La Graciosa: Marcial, la bitácora de Aridane, la cueva del Jameo y la morena abisal
+- [x] Fuerteventura: dunas, calima y el galeón fantasma
+- [x] La Palma: el volcán nuevo y el pez remo gigante
+- [x] El Hierro: Mar de las Calmas, San Borondón
+- [x] San Borondón, Aridane y los tres finales (el final malo depende de los mutantes vendidos a Baltasar)
+- [x] 45 especies con su mutante, cuaderno con páginas
 
 ## 5 · Aspecto
 - [x] Agua con espuma en la costa y rocas, transparencia, reflejos y oleaje fino

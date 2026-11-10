@@ -149,6 +149,132 @@ const FISH := {
 		"d": "Una barracuda canaria: larga, plateada y con dientes de aguja.",
 		"md": "Es casi transparente. Al tocarla se te queda la mano fría y húmeda.",
 	},
+	"murion": {
+		"game": "tiron", "n": "Murión", "m": "Murión de cien dientes", "shape": [[1, 1, 1, 1]], "v": 26, "mv": 80,
+		"c": Color("3a3226"),
+		"d": "Pariente de la morena, oscuro y moteado. Vive en los tubos volcánicos.",
+		"md": "Abre la boca y no termina nunca de abrirla. Está llena de dientes hasta la garganta.",
+	},
+	"catalufa": {
+		"game": "rapido", "n": "Catalufa", "m": "Catalufa de ojo vacío", "shape": [[1, 1]], "v": 14, "mv": 44,
+		"c": Color("c9312a"),
+		"d": "Roja como un tomate y con ojos enormes. Sale de noche de las cuevas.",
+		"md": "Uno de sus ojos es un agujero negro por el que no se ve el fondo.",
+	},
+	"gallo": {
+		"game": "zigzag", "n": "Gallo", "m": "Gallo de piel de piedra", "shape": [[1, 1], [1, 1]], "v": 18, "mv": 55,
+		"c": Color("6f7e86"),
+		"d": "El pez ballesta de Canarias. Duro como una piedra y con mala leche.",
+		"md": "La piel se le ha vuelto lava fría. Pesa el doble de lo que parece.",
+	},
+	"choco": {
+		"game": "zigzag", "n": "Choco", "m": "Choco que escribe", "shape": [[1, 1], [1, 0]], "v": 20, "mv": 62,
+		"c": Color("a88a6a"),
+		"d": "La sepia. Cambia de color y suelta tinta.",
+		"md": "Su tinta forma letras en el agua. Siempre la misma palabra: Aridane.",
+	},
+	"chucho": {
+		"game": "tiron", "n": "Chucho", "m": "Chucho de cola doble", "shape": [[1, 1, 1], [1, 1, 1]], "v": 22, "mv": 66,
+		"c": Color("7a6a52"),
+		"d": "Raya de arena con un aguijón en la cola. Cuidado al cogerlo.",
+		"md": "Tiene dos aguijones y los dos se mueven solos.",
+	},
+	"mantelina": {
+		"game": "normal", "n": "Mantelina", "m": "Mantelina de alas negras", "shape": [[1, 1, 1], [0, 1, 0]], "v": 16, "mv": 50,
+		"c": Color("8a7a5a"),
+		"d": "Raya mariposa, ancha y plana, que se entierra en la arena.",
+		"md": "Sus alas son negras como el carbón y se mueven sin agua.",
+	},
+	"angelote": {
+		"game": "tiron", "n": "Angelote", "m": "Angelote de dos caras", "shape": [[1, 1, 1, 1], [1, 1, 1, 1]], "v": 30, "mv": 90,
+		"c": Color("9a8a6a"),
+		"d": "Tiburón ángel, aplastado como una raya. En Canarias aún quedan.",
+		"md": "Tiene una cara arriba y otra debajo. Las dos te miran.",
+	},
+	"salmonete": {
+		"game": "normal", "n": "Salmonete", "m": "Salmonete de barbas largas", "shape": [[1, 1]], "v": 14, "mv": 44,
+		"c": Color("d65a46"),
+		"d": "Rojo con barbillas para buscar en la arena. Muy sabroso.",
+		"md": "Las barbas le llegan a la cola y se enroscan como raíces.",
+	},
+	"corvina": {
+		"game": "tiron", "n": "Corvina", "m": "Corvina que ronca", "shape": [[1, 1, 1, 1]], "v": 34, "mv": 98,
+		"c": Color("8d8a78"),
+		"d": "Grande y plateada. Hace ruido con la vejiga natatoria.",
+		"md": "Ronca como un hombre dormido, incluso fuera del agua.",
+	},
+	"pez_luna": {
+		"game": "tiron", "n": "Pez luna", "m": "Pez luna eclipsado", "shape": [[1, 1, 1], [1, 1, 1], [1, 1, 1]], "v": 50, "mv": 140,
+		"c": Color("a9b1b4"),
+		"d": "Enorme y redondo, sin cola. Toma el sol tumbado en la superficie.",
+		"md": "La mitad de su cuerpo es negra, como una luna a medio eclipsar.",
+	},
+	"conejo": {
+		"game": "rapido", "n": "Conejo", "m": "Conejo de las cenizas", "shape": [[1, 1, 1, 1]], "v": 30, "mv": 88,
+		"c": Color("3b3a3e"),
+		"d": "Pez de profundidad, negro y alargado, con dientes finos.",
+		"md": "Está cubierto de ceniza volcánica que no se quita al lavarlo.",
+	},
+	"rascacio": {
+		"game": "normal", "n": "Rascacio", "m": "Rascacio de espinas rojas", "shape": [[1, 1]], "v": 18, "mv": 56,
+		"c": Color("b8553a"),
+		"d": "Escorpión de roca, lleno de espinas venenosas. Camuflado entre la lava.",
+		"md": "Sus espinas brillan al rojo como brasas.",
+	},
+	"pota": {
+		"game": "zigzag", "n": "Pota", "m": "Pota de ojos de vidrio", "shape": [[1], [1], [1]], "v": 20, "mv": 60,
+		"c": Color("d98a7a"),
+		"d": "Calamar grande de las aguas hondas de La Palma.",
+		"md": "Sus ojos son de vidrio volcánico: obsidiana pulida.",
+	},
+	"burro": {
+		"game": "normal", "n": "Burro", "m": "Burro que suspira", "shape": [[1, 1]], "v": 12, "mv": 38,
+		"c": Color("9a9a90"),
+		"d": "Roncador gris con rayas finas. Gruñe cuando lo sacas.",
+		"md": "Suspira como un viejo cansado cada vez que respira.",
+	},
+	"pez_remo": {
+		"game": "tiron", "n": "Pez remo", "m": "Pez remo de corona roja", "shape": [[1, 1, 1, 1, 1, 1]], "v": 80, "mv": 220,
+		"c": Color("c9ced2"),
+		"d": "El rey de los arenques: larguísimo y plateado, con una cresta roja. Rarísimo.",
+		"md": "La cresta le arde como una corona de fuego. Dicen que anuncia terremotos.",
+	},
+	"rabil": {
+		"game": "rapido", "n": "Rabil", "m": "Rabil de aletas de hueso", "shape": [[1, 1, 1, 1], [1, 1, 1, 0]], "v": 60, "mv": 170,
+		"c": Color("2d4a6e"),
+		"d": "Atún de aletas amarillas. Rápido como una bala.",
+		"md": "Las aletas amarillas son hueso desnudo.",
+	},
+	"patudo": {
+		"game": "tiron", "n": "Patudo", "m": "Patudo sin pupilas", "shape": [[1, 1, 1, 1], [1, 1, 1, 1]], "v": 70, "mv": 190,
+		"c": Color("263e5e"),
+		"d": "Atún de ojos grandes que vive hondo.",
+		"md": "Sus ojos enormes son blancos y lisos, como perlas.",
+	},
+	"peto": {
+		"game": "rapido", "n": "Peto", "m": "Peto de rayas vivas", "shape": [[1, 1, 1, 1, 1]], "v": 40, "mv": 115,
+		"c": Color("3d6a82"),
+		"d": "Largo, plateado y con rayas azules. El más rápido del mar canario.",
+		"md": "Sus rayas se mueven por el cuerpo como serpientes.",
+	},
+	"picudo": {
+		"game": "tiron", "n": "Picudo", "m": "Picudo de espada negra", "shape": [[1, 1, 1, 1, 1, 1], [0, 1, 1, 1, 0, 0]], "v": 90, "mv": 250,
+		"c": Color("1e3f66"),
+		"d": "Marlín azul, con su espada y su vela. El trofeo de El Hierro.",
+		"md": "Su espada es de piedra negra y está afilada como un cuchillo.",
+	},
+	"dorado": {
+		"game": "rapido", "n": "Dorado", "m": "Dorado que se apaga", "shape": [[1, 1, 1]], "v": 32, "mv": 95,
+		"c": Color("4aa86a"),
+		"d": "Verde y dorado, de frente cuadrada. Cambia de color al morir.",
+		"md": "Sus colores se apagan y se encienden como una bombilla vieja.",
+	},
+	"abadejo": {
+		"game": "normal", "n": "Abadejo", "m": "Abadejo de piel de lagarto", "shape": [[1, 1, 1]], "v": 34, "mv": 96,
+		"c": Color("7a6a4a"),
+		"d": "Pariente del mero, pardo y moteado. Vive en los veriles de La Restinga.",
+		"md": "Tiene la piel de un lagarto gigante de El Hierro.",
+	},
 }
 
 const ZONES := {
@@ -175,6 +301,38 @@ const REGIONS := {
 			"fondo": ["pejeperro", "bicuda", "abade", "pejeperro", "cherne"],
 		},
 	},
+	"lanzarote": {
+		"name": "Lanzarote", "place": "Costa de La Graciosa", "port": "Caleta de Sebo", "seed": 137.0,
+		"zones": {
+			"orilla": ["vieja", "catalufa", "gallo", "choco", "vieja"],
+			"media": ["catalufa", "gallo", "morena", "murion", "choco"],
+			"fondo": ["morena", "murion", "abade", "murion"],
+		},
+	},
+	"fuerteventura": {
+		"name": "Fuerteventura", "place": "Costa de Corralejo", "port": "Puerto de Corralejo", "seed": 173.0,
+		"zones": {
+			"orilla": ["salmonete", "chucho", "mantelina", "corvina", "salmonete"],
+			"media": ["angelote", "corvina", "salmonete", "sama", "mantelina"],
+			"fondo": ["pez_luna", "angelote", "corvina", "chucho"],
+		},
+	},
+	"la_palma": {
+		"name": "La Palma", "place": "Costa de Tazacorte", "port": "Puerto de Tazacorte", "seed": 211.0,
+		"zones": {
+			"orilla": ["rascacio", "burro", "vieja", "burro"],
+			"media": ["pota", "burro", "conejo", "rascacio"],
+			"fondo": ["alfonsino", "conejo", "pota", "conejo", "pez_remo"],
+		},
+	},
+	"el_hierro": {
+		"name": "El Hierro", "place": "Costa de La Restinga", "port": "Puerto de La Restinga", "seed": 251.0,
+		"zones": {
+			"orilla": ["abadejo", "dorado", "vieja", "abadejo"],
+			"media": ["peto", "dorado", "rabil", "peto"],
+			"fondo": ["patudo", "picudo", "rabil", "patudo"],
+		},
+	},
 	"gran_canaria": {
 		"name": "Gran Canaria", "place": "Costa de Las Palmas", "port": "Puerto de La Luz", "seed": 53.0,
 		"zones": {
@@ -198,6 +356,13 @@ const JOURNAL := [
 	["dorada", "Gran Canaria · orilla"], ["bocinegro", "Gran Canaria · medias"], ["pargo", "Gran Canaria · fondo"],
 	["seifia", "La Gomera · orilla"], ["fula", "La Gomera · orilla"], ["cabrilla", "La Gomera · orilla"],
 	["chopa", "La Gomera · medias"], ["bicuda", "La Gomera · medias"], ["pejeperro", "La Gomera · fondo"],
+	["catalufa", "Lanzarote · orilla"], ["gallo", "Lanzarote · orilla"], ["choco", "Lanzarote · orilla"],
+	["murion", "Lanzarote · fondo"], ["salmonete", "Fuerteventura · orilla"], ["chucho", "Fuerteventura · orilla"],
+	["mantelina", "Fuerteventura · orilla"], ["corvina", "Fuerteventura · medias"], ["angelote", "Fuerteventura · medias"],
+	["pez_luna", "Fuerteventura · fondo"], ["rascacio", "La Palma · orilla"], ["burro", "La Palma · orilla"],
+	["pota", "La Palma · medias"], ["conejo", "La Palma · fondo"], ["pez_remo", "La Palma · fondo (raro)"],
+	["abadejo", "El Hierro · orilla"], ["dorado", "El Hierro · orilla"], ["peto", "El Hierro · medias"],
+	["rabil", "El Hierro · medias"], ["patudo", "El Hierro · fondo"], ["picudo", "El Hierro · fondo"],
 ]
 
 # Cómo se comporta cada tipo de pez en el minijuego

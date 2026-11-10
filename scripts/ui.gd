@@ -71,6 +71,15 @@ var dlg_name: Label
 var dlg_text: Label
 
 var intro: Control
+var choice_panel: WoodPanel
+var choice_label: Label
+var choice_box: VBoxContainer
+var choice_cb: Callable
+var ending_layer: ColorRect
+var ending_title: Label
+var ending_text: Label
+var ending_stats: Label
+var journal_pg: Label
 var silbo_panel: WoodPanel
 var silbo_bar: SilboBar
 var silbo_msg: Label
@@ -591,6 +600,8 @@ func _ready() -> void:
 	_build_journal(root)
 	_build_map(root)
 	_build_silbo(root)
+	_build_choice(root)
+	_build_ending(root)
 	_build_intro(root)
 	_build_menu(root)
 	_build_pause(root)
@@ -850,16 +861,20 @@ class JournalBook extends Control:
 	const COLS := 6
 	const CW := 162.0
 	const CH := 136.0
+	const PER_PAGE := 18
 	var game
+	var page := 0
+	func pages() -> int:
+		return int(ceil(float(Data.JOURNAL.size()) / PER_PAGE))
 	func _init() -> void:
-		var rows := int(ceil(float(Data.JOURNAL.size()) / COLS))
-		custom_minimum_size = Vector2(COLS * CW + 40, rows * CH + 30)
+		custom_minimum_size = Vector2(COLS * CW + 40, 3 * CH + 30)
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
 		draw_rect(r, PAPER)
-		for i in Data.JOURNAL.size():
-			var key: String = Data.JOURNAL[i][0]
-			var where: String = Data.JOURNAL[i][1]
+		for idx in range(page * PER_PAGE, min((page + 1) * PER_PAGE, Data.JOURNAL.size())):
+			var i := idx - page * PER_PAGE
+			var key: String = Data.JOURNAL[idx][0]
+			var where: String = Data.JOURNAL[idx][1]
 			var e: Dictionary = game.journal.get(key, {})
 			var seen_n: bool = e.get("n", false)
 			var seen_m: bool = e.get("m", false)
@@ -896,7 +911,14 @@ func _build_journal(root: Control) -> void:
 	journal_book.game = main
 	vb.add_child(journal_book)
 	var foot := HBoxContainer.new()
-	foot.alignment = BoxContainer.ALIGNMENT_END
+	foot.add_theme_constant_override("separation", 10)
+	foot.add_child(_button("◀ Anterior", func(): journal_page(-1)))
+	journal_pg = _label("", 15, PAPER)
+	foot.add_child(journal_pg)
+	foot.add_child(_button("Siguiente ▶", func(): journal_page(1)))
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	foot.add_child(sp)
 	foot.add_child(KeyCap.new("C"))
 	foot.add_child(_label("  cerrar", 14, SALT))
 	vb.add_child(foot)
@@ -937,11 +959,12 @@ func toggle_map() -> void:
 	hold_panel.visible = false
 	journal_panel.visible = false
 	if map_panel.visible:
-		var ports := {"tenerife": Vector2(-16.37, 28.29), "gran_canaria": Vector2(-15.42, 28.14), "la_gomera": Vector2(-17.11, 28.09), "lanzarote": Vector2(-13.55, 28.96)}
+		var ports := {"tenerife": Vector2(-16.37, 28.29), "gran_canaria": Vector2(-15.42, 28.14), "la_gomera": Vector2(-17.11, 28.09),
+			"lanzarote": Vector2(-13.5, 29.23), "fuerteventura": Vector2(-13.87, 28.73), "la_palma": Vector2(-17.94, 28.64), "el_hierro": Vector2(-17.98, 27.65)}
 		map_chart.here = ports.get(main.region, Vector2.ZERO)
 		var gk: String = main.quest.goal_island_key()
 		map_chart.goal = ports.get(gk, Vector2.ZERO) if gk != main.region else Vector2.ZERO
-		map_chart.goal_name = Data.REGIONS[gk]["name"] if Data.REGIONS.has(gk) else ("Lanzarote (próximamente)" if gk == "lanzarote" else "")
+		map_chart.goal_name = Data.REGIONS[gk]["name"] if Data.REGIONS.has(gk) else ""
 
 
 func _build_silbo(root: Control) -> void:
@@ -995,6 +1018,99 @@ func update_silbo(sb: Dictionary) -> void:
 			silbo_msg.text = "Ese no era. Isidro vuelve a silbar."
 
 
+func journal_page(d: int) -> void:
+	journal_book.page = posmod(journal_book.page + d, journal_book.pages())
+	journal_pg.text = "Página %d de %d" % [journal_book.page + 1, journal_book.pages()]
+	journal_book.queue_redraw()
+
+
+func _build_choice(root: Control) -> void:
+	choice_panel = WoodPanel.new()
+	choice_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	choice_panel.custom_minimum_size = Vector2(900, 0)
+	choice_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	choice_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	choice_panel.offset_bottom = -64
+	choice_panel.visible = false
+	root.add_child(choice_panel)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 12)
+	choice_panel.add_child(vb)
+	choice_label = _label("", 24, SUN, F_TITLE)
+	vb.add_child(choice_label)
+	choice_box = VBoxContainer.new()
+	choice_box.add_theme_constant_override("separation", 8)
+	vb.add_child(choice_box)
+
+
+func show_choice(prompt: String, options: Array, cb: Callable) -> void:
+	choice_label.text = prompt
+	choice_cb = cb
+	for c in choice_box.get_children():
+		c.queue_free()
+	for i in options.size():
+		var idx := i
+		var b := _button("%d · %s" % [i + 1, options[i]], func(): pick_choice(idx), i == 0)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		choice_box.add_child(b)
+	main.mode = "choice"
+	choice_panel.visible = true
+
+
+func pick_choice(i: int) -> void:
+	if not choice_panel.visible:
+		return
+	choice_panel.visible = false
+	main.mode = "sail"
+	if choice_cb.is_valid():
+		choice_cb.call(i)
+
+
+func _build_ending(root: Control) -> void:
+	ending_layer = ColorRect.new()
+	ending_layer.color = Color(0.03, 0.02, 0.02, 0.97)
+	ending_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ending_layer.visible = false
+	root.add_child(ending_layer)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ending_layer.add_child(center)
+	var vb := VBoxContainer.new()
+	vb.custom_minimum_size = Vector2(820, 0)
+	vb.add_theme_constant_override("separation", 20)
+	center.add_child(vb)
+	ending_title = _label("", 44, SUN, F_TITLE)
+	ending_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(ending_title)
+	ending_text = _label("", 21, PAPER, F_TITLE_R)
+	ending_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ending_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(ending_text)
+	ending_stats = _label("", 16, SALT)
+	ending_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(ending_stats)
+	vb.add_child(_label("Gracias por jugar MAGEC", 28, SUN, F_HAND))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	row.add_child(_button("Seguir pescando", func():
+		ending_layer.visible = false
+		main.mode = "sail", true))
+	row.add_child(_button("Volver al menú", func(): main.to_main_menu()))
+	vb.add_child(row)
+
+
+func show_ending(title: String, text: String) -> void:
+	var n := 0
+	for e in main.journal.values():
+		n += 1 if e.get("n", false) else 0
+	ending_title.text = title
+	ending_text.text = text
+	ending_stats.text = "Días en el mar: %d   ·   Especies descubiertas: %d/%d   ·   Mutantes vendidos a Baltasar: %d" % [main.day, n, Data.JOURNAL.size(), main.quest.mutants_sold]
+	ending_layer.visible = true
+	main.mode = "menu"
+
+
 func toggle_journal() -> void:
 	journal_panel.visible = not journal_panel.visible
 	hold_panel.visible = false
@@ -1005,7 +1121,7 @@ func toggle_journal() -> void:
 			n += 1 if e.get("n", false) else 0
 			m += 1 if e.get("m", false) else 0
 		journal_count.text = "Especies: %d/%d   ·   Mutantes: %d/%d" % [n, Data.JOURNAL.size(), m, Data.JOURNAL.size()]
-		journal_book.queue_redraw()
+		journal_page(0)
 
 
 func toast_new_species(key: String, mut: bool) -> void:

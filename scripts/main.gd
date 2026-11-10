@@ -94,7 +94,8 @@ func _ready() -> void:
 	if start_action == "continue":
 		region = peek_region()
 	land_seed = Data.REGIONS[region]["seed"]
-	land_steep = 0.62 if region == "la_gomera" else 0.38
+	var steep := {"la_gomera": 0.62, "lanzarote": 0.42, "fuerteventura": 0.22, "la_palma": 0.7, "el_hierro": 0.55}
+	land_steep = steep.get(region, 0.38)
 	_build_environment()
 	_build_ocean()
 	_build_land()
@@ -284,6 +285,15 @@ func _build_land() -> void:
 	terrain_mat.set_shader_parameter("detail", _noise_tex(0.02, 512, false, 31, 5))
 	if region != "tenerife":
 		terrain_mat.set_shader_parameter("snow_line", 9999.0)
+	var looks := {
+		"lanzarote": {"earth": Color(0.12, 0.1, 0.09), "scrub": Color(0.3, 0.16, 0.1), "basalt": Color(0.07, 0.06, 0.06), "green": 0.0},
+		"fuerteventura": {"earth": Color(0.7, 0.58, 0.42), "scrub": Color(0.5, 0.46, 0.3), "basalt": Color(0.38, 0.3, 0.24), "sand": Color(0.86, 0.8, 0.66), "green": 0.0},
+		"la_palma": {"earth": Color(0.28, 0.21, 0.15), "scrub": Color(0.18, 0.32, 0.13), "green": 0.8},
+		"el_hierro": {"earth": Color(0.24, 0.18, 0.14), "scrub": Color(0.24, 0.32, 0.15), "green": 0.45},
+	}
+	if looks.has(region):
+		for k in looks[region]:
+			terrain_mat.set_shader_parameter(k, looks[region][k])
 	if region == "la_gomera":
 		terrain_mat.set_shader_parameter("green", 1.0)
 		terrain_mat.set_shader_parameter("scrub", Color(0.17, 0.3, 0.12))
@@ -325,6 +335,24 @@ func _build_land() -> void:
 	if region == "la_gomera":
 		_build_lg_mountains()
 		return
+	match region:
+		"lanzarote":
+			_mountain(Vector3(-60, -10, -300), 200.0, 105.0, 11)   # Famara
+			_volcano(Vector3(-150, -6, -190), 55.0, 45.0, Color(0.42, 0.17, 0.11))
+			_volcano(Vector3(80, -6, -210), 48.0, 38.0, Color(0.32, 0.14, 0.1))
+			_volcano(Vector3(190, -6, -170), 40.0, 30.0, Color(0.45, 0.2, 0.12))
+		"fuerteventura":
+			_mountain(Vector3(-80, -10, -320), 180.0, 70.0, 12)
+			_mountain(Vector3(110, -10, -300), 160.0, 60.0, 13)
+			for i in 6:
+				_mountain(Vector3(-150 + i * 60, -2.0, -110 - (i % 2) * 18), 26.0, 9.0, 40 + i)   # dunas
+		"la_palma":
+			_mountain(Vector3(-60, -10, -330), 200.0, 170.0, 14)   # Caldera de Taburiente
+			_mountain(Vector3(120, -10, -320), 170.0, 140.0, 15)
+			_volcano(Vector3(-150, -6, -170), 50.0, 55.0, Color(0.08, 0.07, 0.07), true)   # Tajogaite
+		"el_hierro":
+			_mountain(Vector3(-40, -10, -320), 190.0, 130.0, 16)
+			_mountain(Vector3(150, -10, -300), 150.0, 100.0, 17)
 	# El Teide al fondo, con nieve en la cumbre
 	_mountain(Vector3(-90, -10, -330), 175.0, 190.0, 1)
 	_mountain(Vector3(60, -10, -360), 150.0, 120.0, 2)
@@ -382,6 +410,103 @@ func _build_lg_mountains() -> void:
 	terrain_mat = far_mat
 	_mountain(Vector3(760, -30, 120), 360.0, 300.0, 1)
 	terrain_mat = keep
+
+
+func _volcano(center: Vector3, radius: float, height: float, col: Color, smoking := false) -> void:
+	## Cono volcánico con cráter (picón rojo o negro).
+	var keep := terrain_mat
+	var vm := ShaderMaterial.new()
+	vm.shader = TERRAIN_SHADER
+	vm.set_shader_parameter("detail", terrain_mat.get_shader_parameter("detail"))
+	vm.set_shader_parameter("snow_line", 9999.0)
+	vm.set_shader_parameter("earth", col)
+	vm.set_shader_parameter("scrub", col.darkened(0.2))
+	vm.set_shader_parameter("basalt", col.darkened(0.35))
+	terrain_mat = vm
+	_mountain(center, radius, height, int(center.x))
+	terrain_mat = keep
+	# cráter: anillo oscuro hundido en la cima
+	var crater := Props.cyl(radius * 0.18, radius * 0.12, 4.0, 14)
+	_mesh(crater, _mat(col.darkened(0.6), 1.0), center + Vector3(0, height - 1.0, 0))
+	if smoking:
+		var smoke := GPUParticles3D.new()
+		smoke.amount = 60
+		smoke.lifetime = 9.0
+		var pm := ParticleProcessMaterial.new()
+		pm.direction = Vector3(0.3, 1, 0)
+		pm.spread = 12.0
+		pm.initial_velocity_min = 3.0
+		pm.initial_velocity_max = 5.0
+		pm.gravity = Vector3(0.6, 0.4, 0)
+		pm.scale_min = 6.0
+		pm.scale_max = 14.0
+		smoke.process_material = pm
+		var puff := SphereMesh.new()
+		puff.radius = 1.0
+		puff.height = 2.0
+		var sm := StandardMaterial3D.new()
+		sm.albedo_color = Color(0.35, 0.33, 0.32, 0.35)
+		sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		puff.material = sm
+		smoke.draw_pass_1 = puff
+		smoke.position = center + Vector3(0, height, 0)
+		smoke.visibility_aabb = AABB(Vector3(-80, -10, -80), Vector3(160, 200, 160))
+		add_child(smoke)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(1.0, 0.4, 0.1)
+		glow.light_energy = 3.0
+		glow.omni_range = 60
+		glow.position = center + Vector3(0, height + 4, 0)
+		add_child(glow)
+
+
+func _build_village(seed_v: int, wall_c := Color(0, 0, 0, 0), wood_c := Color(0, 0, 0, 0), avoid := Vector2(9999, 9999)) -> void:
+	## Muelle de madera y un pueblo de casas canarias frente al mar.
+	var stone := _mat(Color("6d665e"), 1.0)
+	_mesh(Props.box(Vector3(4.6, 2.4, 25)), stone, Vector3(0, -0.2, -66.5))
+	var plank := _mat(Color("7a5636"), 0.9)
+	for i in 25:
+		_mesh(Props.box(Vector3(4.4, 0.12, 0.95)), plank, Vector3(0, 1.06, -54.5 - i))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	for row in 2:
+		for i in 15:
+			var w := 4.5 + rng.randf() * 2.5
+			var h := 3.4 + rng.randf() * (3.0 + row * 1.5)
+			var x := -40.0 + i * 5.4 + rng.randf()
+			var z := -85.0 - row * 9.0 - rng.randf() * 3.0
+			if Vector2(x, z).distance_to(avoid) < 12.0:
+				continue
+			Props.house(self, Vector3(x, max(land_h(x, z), 0.5), z), w, 6.0, h, rng, 0.0, wall_c, wood_c)
+	port_light = OmniLight3D.new()
+	port_light.light_color = Color("ffb45a")
+	port_light.omni_range = 40
+	port_light.position = Vector3(1.6, 6.2, -72)
+	add_child(port_light)
+	var lamp_m := _mat(Color("ffdba0"))
+	lamp_m.emission_enabled = true
+	lamp_m.emission = Color("ffb45a")
+	lamp_m.emission_energy_multiplier = 3.0
+	_mesh(Props.cyl(0.08, 0.1, 6.0, 6), _mat(Color("222222")), Vector3(1.6, 3.5, -72))
+	var gl := SphereMesh.new()
+	gl.radius = 0.4
+	gl.height = 0.8
+	_mesh(gl, lamp_m, Vector3(1.6, 6.6, -72))
+
+
+func _lighthouse(x: float, z: float, h := 16.0) -> void:
+	var y: float = max(land_h(x, z), 0.5)
+	for i in 4:
+		_mesh(Props.cyl(1.6 - i * 0.2, 1.8 - i * 0.2, h / 4.0, 12), _mat(Color("eeeae0") if i % 2 == 0 else Color("b8322a"), 0.8), Vector3(x, y + h / 8.0 + i * h / 4.0, z))
+	var lm := _mat(Color("fff1c0"))
+	lm.emission_enabled = true
+	lm.emission = Color("fff1c0")
+	lm.emission_energy_multiplier = 4.0
+	var bulb := SphereMesh.new()
+	bulb.radius = 1.0
+	bulb.height = 2.0
+	_mesh(bulb, lm, Vector3(x, y + h + 1.0, z))
 
 
 func _build_lg_port() -> void:
@@ -473,11 +598,15 @@ func _build_vegetation() -> void:
 		if in_town or near_pyr:
 			continue
 		var basis := Basis(Vector3.UP, rng.randf() * TAU)
-		if h < 7.0 and slope < 1.6 and palms.size() < 70 and rng.randf() < 0.18:
+		var veg := {"lanzarote": [0.25, 0.0, 0.15], "fuerteventura": [0.3, 0.1, 0.3], "la_palma": [0.6, 0.3, 1.0], "el_hierro": [0.4, 0.5, 0.8]}
+		var vk: Array = veg.get(region, [1.0, 1.0, 1.0])
+		if rng.randf() > max(vk[0], max(vk[1], vk[2])):
+			continue
+		if h < 7.0 and slope < 1.6 and palms.size() < int(70 * vk[0]) and rng.randf() < 0.18:
 			palms.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.8, 1.25)), Vector3(x, h - 0.2, z)))
-		elif slope > 0.8 and cardones.size() < 160 and rng.randf() < 0.3:
+		elif slope > 0.8 and cardones.size() < int(160 * vk[1]) and rng.randf() < 0.3:
 			cardones.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.7, 1.5)), Vector3(x, h - 0.1, z)))
-		elif shrubs.size() < 700:
+		elif shrubs.size() < int(700 * vk[2]):
 			shrubs.append(Transform3D(basis.scaled(Vector3(1, rng.randf_range(0.7, 1.1), 1) * rng.randf_range(0.6, 1.4)), Vector3(x, h - 0.1, z)))
 	# palmeras del paseo del pueblo
 	for i in 9:
@@ -489,6 +618,28 @@ func _build_vegetation() -> void:
 	Props.scatter(self, Props.cardon_mesh(), cm, cardones)
 	var sm := Props.mat(Color("6f7f3a"), 0.95)
 	Props.scatter(self, Props.shrub_mesh(), sm, shrubs)
+	if region in ["la_palma", "el_hierro"]:
+		# pinar canario en las alturas; sabinas en El Hierro; plataneras en La Palma
+		var trees: Array = []
+		var low: Array = []
+		var r3 := RandomNumberGenerator.new()
+		r3.seed = 55
+		for i in 7000:
+			var x := r3.randf_range(-330, 330)
+			var z := r3.randf_range(-310, -72)
+			var h := land_h(x, z)
+			if h < 1.0 or h > 45.0 or (abs(x) < 45.0 and z > -105.0):
+				continue
+			var basis := Basis(Vector3.UP, r3.randf() * TAU)
+			if h > 16.0 and trees.size() < 380:
+				trees.append(Transform3D(basis.scaled(Vector3.ONE * r3.randf_range(0.8, 1.4)), Vector3(x, h - 0.3, z)))
+			elif h < 10.0 and low.size() < 260:
+				low.append(Transform3D(basis.scaled(Vector3.ONE * r3.randf_range(0.8, 1.2)), Vector3(x, h - 0.2, z)))
+		Props.scatter(self, Props.pine_mesh(), Props.mat(Color("2f4a26"), 0.9), trees)
+		if region == "la_palma":
+			Props.scatter(self, Props.banana_mesh(), Props.mat(Color("5a8a32"), 0.8), low)
+		else:
+			Props.scatter(self, Props.sabina_mesh(), Props.mat(Color("3d5230"), 0.9), low)
 	if region == "la_gomera":
 		# laurisilva en lo alto y palmerales en los barrancos
 		var laurels: Array = []
@@ -570,6 +721,34 @@ func _build_port() -> void:
 	if region == "la_gomera":
 		_build_lg_port()
 		return
+	match region:
+		"lanzarote":
+			# Caleta de Sebo: casas blancas con carpintería verde, calles de arena
+			_build_village(31, Color("f6f4ee"), Color("2e6b4f"))
+			# cueva marina (Jameo) al oeste, con su arco de lava
+			var basalt := _mat(Color("1c1917"), 0.95)
+			for sx in [-1, 1]:
+				var r := MeshInstance3D.new()
+				r.mesh = Props.rock_mesh(sx + 5)
+				r.material_override = basalt
+				r.scale = Vector3(4.0, 7.0, 4.5)
+				r.position = Vector3(-90 + sx * 7.0, 2.0, -70)
+				add_child(r)
+			var lintel := MeshInstance3D.new()
+			lintel.mesh = Props.rock_mesh(9)
+			lintel.material_override = basalt
+			lintel.scale = Vector3(10.0, 3.0, 5.0)
+			lintel.position = Vector3(-90, 8.5, -70)
+			add_child(lintel)
+			_mesh(Props.box(Vector3(9.0, 8.0, 4.0)), _mat(Color("050404"), 1.0), Vector3(-90, 2.0, -73))
+		"fuerteventura":
+			_build_village(37, Color("f6f4ee"), Color("1d5aa6"))
+			_lighthouse(70.0, -80.0)
+		"la_palma":
+			_build_village(41)
+		"el_hierro":
+			_build_village(43, Color(0, 0, 0, 0), Color(0, 0, 0, 0))
+			_lighthouse(-120.0, -82.0, 14.0)
 	# Muelle: base de piedra, tablones de madera y bolardos
 	var stone := _mat(Color("6d665e"), 1.0)
 	var dock := BoxMesh.new()
@@ -914,6 +1093,7 @@ func strike() -> void:
 
 func end_fishing(ok: bool, cancel := false) -> void:
 	ui.close_fishing()
+	quest.isles.fishing_end()
 	if ok and fishing.get("special", false):
 		fishing = {}
 		mode = "sail"
@@ -1200,6 +1380,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mode == "silbo":
 		quest.silbo_key(k)
 		return
+	if mode == "choice":
+		if k in [KEY_1, KEY_KP_1]:
+			ui.pick_choice(0)
+		elif k in [KEY_2, KEY_KP_2]:
+			ui.pick_choice(1)
+		return
 	if mode == "fish":
 		if k == KEY_SPACE or k == KEY_E:
 			strike()
@@ -1236,13 +1422,14 @@ func _process(delta: float) -> void:
 	var dt: float = min(delta, 0.05)
 	t += dt
 	if mode != "cinematic" and mode != "menu":
-		amp = move_toward(amp, float(weather.blend["amp"]), dt * 0.3)
+		amp = move_toward(amp, float(weather.blend["amp"]) * (0.45 if region == "el_hierro" else 1.0), dt * 0.3)
 	_update_boat(dt)
 	_update_world(dt)
 	_update_panic(dt)
 	_apply_light()
 	if mode == "fish":
 		_update_minigame(dt)
+		quest.isles.fishing_tick(dt)
 		fishing["p"] += fishing["dir"] * fishing["speed"] * dt
 		if fishing["p"] > 1.0:
 			fishing["p"] = 1.0
@@ -1281,7 +1468,9 @@ func _update_boat(dt: float) -> void:
 	var nx := bx - sin(ba) * bv * dt
 	var nzp := bz - cos(ba) * bv * dt
 	var on_dock: bool = abs(nx) < 2.6 and nzp < -53.0 and nzp > -79.0
-	if hazards.rock_at(nx, nzp) != null:
+	if quest.finale and quest.finale.solid(nx, nzp):
+		bv *= -0.3
+	elif hazards.rock_at(nx, nzp) != null:
 		hazards.hit_rock(bv)
 		bv *= -0.4
 	elif land_h(nx, nzp) > -0.8 or on_dock:
