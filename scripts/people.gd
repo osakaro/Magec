@@ -136,7 +136,10 @@ static func make(parent: Node, who: String, pos: Vector3, facing := 0.0, main = 
 	Props.add_mesh(head, _sph(0.12, 1.1), skin, Vector3(0, 0.06, 0))
 	Props.add_mesh(head, _sph(0.025), skin, Vector3(0, 0.05, -0.12))   # nariz
 	for ex in [-0.045, 0.045]:
-		Props.add_mesh(head, _sph(0.014), m("1a1410", 0.3), Vector3(ex, 0.09, -0.105))
+		Props.add_mesh(head, _sph(0.022), m("f2ece0", 0.4), Vector3(ex, 0.085, -0.1))
+		Props.add_mesh(head, _sph(0.013), m("1a1410", 0.2), Vector3(ex, 0.085, -0.118))
+		Props.add_mesh(head, Props.box(Vector3(0.05, 0.012, 0.02)), m(lk["hair"], 0.9), Vector3(ex, 0.12, -0.11), Vector3(0, 0, -0.15 * sign(ex)))
+	Props.add_mesh(head, Props.box(Vector3(0.05, 0.01, 0.01)), m("7a3a30", 0.6), Vector3(0, 0.0, -0.118))
 	# pelo
 	Props.add_mesh(head, _sph(0.125, 0.75), hair, Vector3(0, 0.12, 0.015))
 	if lk.get("long_hair", false):

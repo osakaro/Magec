@@ -311,6 +311,16 @@ func _person(pos: Vector3, body_col: Color, skin: Color, hat: Color = Color(0, 0
 		main.add_child(hi)
 
 
+func shore(x: float, z: float) -> Vector3:
+	## Punto de tierra seca más cercano yendo tierra adentro (para que nadie quede en el agua).
+	var zz := z
+	for i in 60:
+		if main.land_h(x, zz) > 0.7:
+			break
+		zz -= 0.5
+	return Vector3(x, main.land_h(x, zz), zz)
+
+
 func _build_pyramids_and_chaxiraxi() -> void:
 	var stone := StandardMaterial3D.new()
 	stone.albedo_color = Color("4a4038")
@@ -329,7 +339,10 @@ func _build_pyramids_and_chaxiraxi() -> void:
 	var cx := -62.0
 	var cz := -74.0
 	var y: float = max(main.land_h(cx, cz), 0.4)
-	People.make(main, "Chaxiraxi", Vector3(cx, y, cz), PI, main)
+	var cp := shore(cx, cz)
+	People.make(main, "Chaxiraxi", cp, PI, main)
+	y = cp.y
+	cz = cp.z
 	npc_light = OmniLight3D.new()
 	npc_light.light_color = Color("ffb45a")
 	npc_light.omni_range = 14
@@ -365,7 +378,7 @@ func _build_dock_people() -> void:
 	a.material_override = am
 	a.position = Vector3(3.6, 3.2, -74.5)
 	main.add_child(a)
-	People.make(main, "Nieves", Vector3(3.6, max(main.land_h(3.6, -76.0), 0.5), -76.0), PI, main)
+	People.make(main, "Nieves", shore(3.6, -76.0), PI, main)
 
 
 func _build_lighthouse() -> void:
@@ -404,7 +417,7 @@ func _build_lighthouse() -> void:
 	l.material_override = lm
 	l.position = Vector3(x, y + 17.0, z)
 	main.add_child(l)
-	People.make(main, "Yaiza", Vector3(x + 2.5, max(main.land_h(x + 2.5, z + 6.0), 0.5), z + 6.0), PI, main)
+	People.make(main, "Yaiza", shore(x + 2.5, z + 6.0), PI, main)
 
 
 func _build_baltasar() -> void:
