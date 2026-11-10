@@ -529,7 +529,7 @@ func _build_village(seed_v: int, wall_c := Color(0, 0, 0, 0), wood_c := Color(0,
 
 func _dock_props() -> void:
 	## Barriles, cajas, farol y salvavidas sobre el muelle (modelos de Poly Haven).
-	Props.place(self, "wooden_barrels_01", Vector3(1.4, 1.12, -59.5), 1.2, 0.4)
+	Props.place(self, "Barrel_01", Vector3(1.45, 1.12, -59.5), 1.15, 0.4)
 	Props.place(self, "Barrel_01", Vector3(1.5, 1.12, -61.0), 1.1, 1.2)
 	Props.place(self, "wooden_crate_01", Vector3(-1.5, 1.12, -63.5), 1.4, 0.2)
 	Props.place(self, "wooden_crate_01", Vector3(-1.4, 1.6, -63.4), 1.3, -0.3)
@@ -814,8 +814,8 @@ func _build_port() -> void:
 	var iron := _mat(Color("2b2b2e"), 0.5)
 	for i in 4:
 		for sx in [-1.9, 1.9]:
-			var bol := Props.cyl(0.18, 0.24, 0.6, 10)
-			_mesh(bol, iron, Vector3(sx, 1.4, -56.0 - i * 6.0))
+			var bol := Props.cyl(0.12, 0.15, 0.4, 10)
+			_mesh(bol, iron, Vector3(sx * 1.05, 1.3, -56.0 - i * 6.0))
 	# Escollera de roca volcánica protegiendo la caleta
 	var basalt := _mat(Color("2a2522"), 0.95)
 	var rng := RandomNumberGenerator.new()

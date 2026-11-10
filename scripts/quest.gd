@@ -348,7 +348,7 @@ func _build_dock_people() -> void:
 	c.material_override = wood
 	c.position = Vector3(-1.2, 1.5, -57.5)
 	main.add_child(c)
-	People.make(main, "Pancho", Vector3(-1.2, 1.32, -57.5), PI, main)
+	People.make(main, "Pancho", Vector3(-1.2, 1.32, -57.75), PI, main)
 	var stall := BoxMesh.new()
 	stall.size = Vector3(2.4, 1.0, 1.2)
 	var s := MeshInstance3D.new()

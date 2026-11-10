@@ -72,10 +72,17 @@ static func make(parent: Node, who: String, pos: Vector3, facing := 0.0, main = 
 			var leg := Node3D.new()
 			leg.position = Vector3(sx, hip_y, 0)
 			p.add_child(leg)
-			var lm := Props.add_mesh(leg, _cap(0.075, 0.9), pants, Vector3(0, -0.45, 0))
 			if sit:
-				leg.rotation.x = PI / 2
-			var shoe := Props.add_mesh(leg, Props.box(Vector3(0.11, 0.07, 0.24)), m("2a2420"), Vector3(0, -0.88, -0.05))
+				# muslo hacia delante y pierna colgando desde la rodilla
+				Props.add_mesh(leg, _cap(0.08, 0.5), pants, Vector3(0, 0, -0.22), Vector3(PI / 2, 0, 0))
+				var knee := Node3D.new()
+				knee.position = Vector3(0, 0, -0.44)
+				leg.add_child(knee)
+				Props.add_mesh(knee, _cap(0.07, 0.5), pants, Vector3(0, -0.22, 0))
+				Props.add_mesh(knee, Props.box(Vector3(0.11, 0.07, 0.24)), m("2a2420"), Vector3(0, -0.46, -0.05))
+			else:
+				Props.add_mesh(leg, _cap(0.075, 0.9), pants, Vector3(0, -0.45, 0))
+				Props.add_mesh(leg, Props.box(Vector3(0.11, 0.07, 0.24)), m("2a2420"), Vector3(0, -0.88, -0.05))
 	# torso
 	var body := Node3D.new()
 	body.position = Vector3(0, hip_y, 0)

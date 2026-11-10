@@ -537,7 +537,8 @@ static func house(parent: Node, pos: Vector3, w: float, d: float, h: float, rng:
 	g.rotation.y = facing
 	parent.add_child(g)
 	var wc: Color = wall_c if wall_c.a > 0.0 else WALLS[rng.randi() % WALLS.size()]
-	var wall := tex_mat("white_plaster_rough_01", wc.lightened(0.05), 0.3)
+	var wall := tex_mat("white_plaster_rough_01", wc.lightened(0.05), 0.9)
+	wall.normal_scale = 0.35
 	var wood := tex_mat("weathered_planks", (wood_c if wood_c.a > 0.0 else WOODS[rng.randi() % WOODS.size()]).lightened(0.25), 0.6, 0.8)
 	var dark := mat(Color("1b1a1a"), 0.4)
 	add_mesh(g, box(Vector3(w, h + 3.0, d)), wall, Vector3(0, (h - 3.0) / 2.0, 0))
@@ -572,7 +573,8 @@ static func church(parent: Node, pos: Vector3) -> void:
 	var g := Node3D.new()
 	g.position = pos
 	parent.add_child(g)
-	var white := tex_mat("white_plaster_rough_01", Color("f6f2ea"), 0.3)
+	var white := tex_mat("white_plaster_rough_01", Color("f6f2ea"), 0.9)
+	white.normal_scale = 0.35
 	var stone := tex_mat("rock_face", Color("6a6460"), 0.5)
 	var roof := mat(Color("9c4a32"), 0.8)
 	add_mesh(g, box(Vector3(8, 10, 15)), white, Vector3(0, 2.0, 0))
