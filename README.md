@@ -27,6 +27,7 @@ sale al mar de día a pescar... y de noche lo que sale del agua ya no es normal.
 
 ## Qué hay en esta versión
 
+- Tutorial con consejos al empezar, personajes en 3D animados (miran al barco y gesticulan al hablar), Acorán al timón, opción de calidad gráfica, icono y exportación a Windows (ver `EXPORTAR.md`).
 - **Las 8 islas y el final completo**: Lanzarote y La Graciosa (la bitácora de Aridane y la morena abisal), Fuerteventura (el galeón fantasma en la calima), La Palma (el pez remo gigante), El Hierro (San Borondón, Aridane, Don Baltasar y tres finales). 45 especies.
 - La Gomera: San Sebastián con la Torre del Conde, laurisilva, niebla, el Teide en el horizonte; Isidro te enseña el silbo (minijuego), buscas a Tomasín en la niebla siguiendo el eco y consigues la tercera piedra. El silbo espanta al Tibicena.
 - Brújula con flecha al objetivo y mapa de Canarias (M). Giro del barco suave, con inercia y escora.

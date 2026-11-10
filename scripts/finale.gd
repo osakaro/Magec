@@ -171,7 +171,7 @@ func _build_island() -> void:
 	sb.add_child(eye_slit)
 	# Aridane en la orilla, con su barca varada y un farol
 	var aridane_pos := Vector3(0, 0.6, -SB_R + 3.0)
-	_person(sb, aridane_pos, Color("3a4a3a"), Color("c4a080"), Color("dcd6c8"))
+	load("res://scripts/people.gd").make(sb, "Aridane", aridane_pos + Vector3(0, -0.6, 0), 0.0, main)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color("ffd27a")
 	lamp.light_energy = 2.5

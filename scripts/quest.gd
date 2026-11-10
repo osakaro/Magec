@@ -12,6 +12,7 @@ extends Node
 
 const Boss = preload("res://scripts/boss.gd")
 const Data = preload("res://scripts/data.gd")
+const People = preload("res://scripts/people.gd")
 const Isles = preload("res://scripts/isles.gd")
 const Finale = preload("res://scripts/finale.gd")
 
@@ -246,10 +247,11 @@ func _ready() -> void:
 		_build_lighthouse()
 		_build_baltasar()
 	elif main.region == "la_gomera":
-		_person(Vector3(-1.4, 1.2, -60.0), Color("5a4a3a"), Color("b98a6a"), Color("e8e0c8"))
+		People.make(main, "Isidro", Vector3(-1.4, 1.12, -60.0), PI, main)
 		_build_tomasin()
 	else:
-		_person(Vector3(-1.4, 1.2, -60.0), Color("3a4a5a"), Color("c49270"), Color("2b2b2b"))
+		var npc_by_isle := {"lanzarote": "Marcial", "fuerteventura": "Saro", "la_palma": "Elena", "el_hierro": "Bentor"}
+		People.make(main, npc_by_isle.get(main.region, "Marcial"), Vector3(-1.4, 1.12, -60.0), PI, main)
 	isles = Isles.new()
 	isles.main = main
 	isles.quest = self
@@ -266,6 +268,7 @@ func _build_tomasin() -> void:
 	var b: Dictionary = main.make_boat(Color("eae4d2"), Color("b8322a"), Color("1d5aa6"), "San Telmo")
 	b["light"].light_energy = 1.6
 	b["lamp_mat"].emission_energy_multiplier = 3.0
+	People.make(b["node"], "Tomasín", Vector3(0.3, 0.45, 2.0), 0.0, main)
 	tomasin = b
 
 
@@ -326,7 +329,7 @@ func _build_pyramids_and_chaxiraxi() -> void:
 	var cx := -62.0
 	var cz := -74.0
 	var y: float = max(main.land_h(cx, cz), 0.4)
-	_person(Vector3(cx, y, cz), Color("2b2a33"), Color("b98a6a"), Color("2b2a33"))
+	People.make(main, "Chaxiraxi", Vector3(cx, y, cz), PI, main)
 	npc_light = OmniLight3D.new()
 	npc_light.light_color = Color("ffb45a")
 	npc_light.omni_range = 14
@@ -345,7 +348,7 @@ func _build_dock_people() -> void:
 	c.material_override = wood
 	c.position = Vector3(-1.2, 1.5, -57.5)
 	main.add_child(c)
-	_person(Vector3(-1.2, 1.8, -57.5), Color("5c5a52"), Color("c49270"), Color("d9cfb4"), true)
+	People.make(main, "Pancho", Vector3(-1.2, 1.32, -57.5), PI, main)
 	var stall := BoxMesh.new()
 	stall.size = Vector3(2.4, 1.0, 1.2)
 	var s := MeshInstance3D.new()
@@ -362,7 +365,7 @@ func _build_dock_people() -> void:
 	a.material_override = am
 	a.position = Vector3(3.6, 3.2, -74.5)
 	main.add_child(a)
-	_person(Vector3(3.6, max(main.land_h(3.6, -76.0), 0.5), -76.0), Color("b8322a"), Color("b98a6a"))
+	People.make(main, "Nieves", Vector3(3.6, max(main.land_h(3.6, -76.0), 0.5), -76.0), PI, main)
 
 
 func _build_lighthouse() -> void:
@@ -401,11 +404,11 @@ func _build_lighthouse() -> void:
 	l.material_override = lm
 	l.position = Vector3(x, y + 17.0, z)
 	main.add_child(l)
-	_person(Vector3(x + 2.5, max(main.land_h(x + 2.5, z + 6.0), 0.5), z + 6.0), Color("33475b"), Color("c49270"), Color("1d2a38"))
+	People.make(main, "Yaiza", Vector3(x + 2.5, max(main.land_h(x + 2.5, z + 6.0), 0.5), z + 6.0), PI, main)
 
 
 func _build_baltasar() -> void:
-	_person(Vector3(-1.5, 1.2, -60.0), Color("1a1a1e"), Color("d0a184"), Color("1a1a1e"))
+	People.make(main, "Don Baltasar", Vector3(-1.5, 1.12, -60.0), PI, main)
 
 
 func _build_stone_spot() -> void:

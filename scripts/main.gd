@@ -15,6 +15,7 @@ const Gear = preload("res://scripts/gear.gd")
 const Hazards = preload("res://scripts/hazards.gd")
 const Weather = preload("res://scripts/weather.gd")
 const Life = preload("res://scripts/life.gd")
+const Tutorial = preload("res://scripts/tutorial.gd")
 
 # Altura de las olas (la cinemática la sube durante el temblor)
 static var amp := 1.0
@@ -86,6 +87,7 @@ var gear
 var hazards
 var weather
 var life
+var tutorial
 var hull := 3
 var hull_max := 3
 var region := "tenerife"
@@ -129,6 +131,9 @@ func _ready() -> void:
 	weather = Weather.new()
 	weather.main = self
 	add_child(weather)
+	tutorial = Tutorial.new()
+	tutorial.main = self
+	add_child(tutorial)
 	life = Life.new()
 	life.main = self
 	add_child(life)
@@ -887,6 +892,8 @@ func _build_boat() -> void:
 	lamp_light = b["light"]
 	lamp_mat = b["lamp_mat"]
 	lamp_light.light_volumetric_fog_energy = 2.5
+	# Acorán al timón
+	load("res://scripts/people.gd").make(boat, "Acorán", Vector3(0.35, 0.42, 2.05), 0.0, self)
 	# salpicaduras en la proa
 	spray = GPUParticles3D.new()
 	spray.amount = 70
@@ -1384,7 +1391,7 @@ func save_game() -> void:
 		"region": region, "story": quest.to_dict(),
 		"quest_state": quest.state, "stones": quest.stones,
 		"journal": journal, "gear": gear.to_dict(),
-		"hull": hull, "weather": weather.to_dict(),
+		"hull": hull, "weather": weather.to_dict(), "tutorial": tutorial.to_dict(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -1435,6 +1442,8 @@ func load_game() -> bool:
 	gear.from_dict(d.get("gear", {}))
 	hull = int(d.get("hull", hull_max))
 	weather.from_dict(d.get("weather", {}))
+	# partidas de antes del tutorial: ya saben jugar
+	tutorial.from_dict(d.get("tutorial", {"step": 99, "done": true}))
 	camera.position = Vector3(bx + sin(ba) * 20.0, 13.0, bz + cos(ba) * 20.0)
 	return true
 

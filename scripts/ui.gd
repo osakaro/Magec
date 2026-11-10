@@ -71,6 +71,9 @@ var dlg_name: Label
 var dlg_text: Label
 
 var intro: Control
+var tut_box: PanelContainer
+var tut_key: KeyCap
+var tut_lbl: Label
 var choice_panel: WoodPanel
 var choice_label: Label
 var choice_box: VBoxContainer
@@ -92,7 +95,7 @@ var menu_buttons: VBoxContainer
 var menu_confirm: HBoxContainer
 var pause_panel: WoodPanel
 var options_panel: WoodPanel
-var opt := {"master": 0.8, "music": 0.8, "sfx": 0.9, "fullscreen": false, "quality": 2}
+var opt := {"master": 0.8, "music": 0.8, "sfx": 0.9, "fullscreen": false, "quality": 2, "tutorial": true}
 const OPT_PATH := "user://opciones.cfg"
 var cine_black: ColorRect
 var cine_card: Label
@@ -735,6 +738,37 @@ func _build_hud(root: Control) -> void:
 	hint_lbl = _label("", 19, FOAM, F_UI_B)
 	hrow.add_child(hint_lbl)
 
+	# Cartel del tutorial: papel con una tecla, bajo el encargo
+	tut_box = PanelContainer.new()
+	var tsb2 := StyleBoxFlat.new()
+	tsb2.bg_color = Color(PAPER, 0.96)
+	tsb2.border_color = Color(SUN, 0.9)
+	tsb2.set_border_width_all(2)
+	tsb2.set_corner_radius_all(4)
+	tsb2.set_content_margin_all(12)
+	tsb2.shadow_color = Color(0, 0, 0, 0.35)
+	tsb2.shadow_size = 8
+	tut_box.add_theme_stylebox_override("panel", tsb2)
+	tut_box.position = Vector2(26, 190)
+	tut_box.custom_minimum_size = Vector2(360, 0)
+	tut_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tut_box.visible = false
+	root.add_child(tut_box)
+	var trow := HBoxContainer.new()
+	trow.add_theme_constant_override("separation", 12)
+	tut_box.add_child(trow)
+	tut_key = KeyCap.new("E")
+	tut_key.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	trow.add_child(tut_key)
+	var tvb := VBoxContainer.new()
+	tvb.add_theme_constant_override("separation", 0)
+	trow.add_child(tvb)
+	tvb.add_child(_label("CONSEJO", 12, Color(INK, 0.6), F_TITLE))
+	tut_lbl = _label("", 18, INK)
+	tut_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tut_lbl.custom_minimum_size = Vector2(290, 0)
+	tvb.add_child(tut_lbl)
+
 	toast_box = PanelContainer.new()
 	var tsb := wood_style(0.92)
 	tsb.set_content_margin_all(12)
@@ -1303,6 +1337,13 @@ func update_hud() -> void:
 		main.camera.h_offset = 0.0
 		main.camera.v_offset = 0.0
 	note.set_text("" if cine else main.quest.objective())
+	var tip: Array = main.tutorial.current() if (main.tutorial and not cine) else []
+	tut_box.visible = not tip.is_empty() and main.mode in ["sail", "fish", "catch"]
+	if tut_box.visible:
+		if tut_key.key != tip[0]:
+			tut_key.set_key(tip[0])
+		tut_lbl.text = tip[1]
+		tut_box.position.y = note.position.y + note.size.y + 16.0
 	vignette.material.set_shader_parameter("amount", clamp((main.panic - 60.0) / 40.0, 0.0, 1.0))
 	vignette.material.set_shader_parameter("t", main.t)
 
@@ -1929,6 +1970,15 @@ func _build_options(root: Control) -> void:
 		_save_options())
 	qrow.add_child(qo)
 	vb.add_child(qrow)
+	var tu := CheckButton.new()
+	tu.text = "Consejos del tutorial"
+	tu.add_theme_font_override("font", F_TITLE_R)
+	tu.add_theme_font_size_override("font_size", 18)
+	tu.button_pressed = opt["tutorial"]
+	tu.toggled.connect(func(on):
+		opt["tutorial"] = on
+		_save_options())
+	vb.add_child(tu)
 	var fs := CheckButton.new()
 	fs.text = "Pantalla completa"
 	fs.add_theme_font_override("font", F_TITLE_R)
