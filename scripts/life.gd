@@ -169,7 +169,7 @@ func _build_dolphins() -> void:
 func _build_boats() -> void:
 	var colors := [[Color("f1e6c8"), Color("2e7d4f"), Color("e0b23a")], [Color("eef0ee"), Color("b8322a"), Color("1d5aa6")]]
 	for i in 2:
-		var b: Dictionary = main.make_boat(colors[i][0], colors[i][1], colors[i][2])
+		var b: Dictionary = main.make_boat(colors[i][0], colors[i][1], colors[i][2], ["Virgen del Carmen", "La Morenita"][i])
 		var start: Vector2 = ROUTES[i][0]
 		boats.append({"node": b["node"], "light": b["light"], "lamp": b["lamp_mat"], "pos": start, "wp": 1, "route": i, "a": 0.0})
 

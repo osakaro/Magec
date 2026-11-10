@@ -882,7 +882,7 @@ func _build_port() -> void:
 
 func _build_boat() -> void:
 	# Barquillo canario de Acorán: blanco con franja azul y roja.
-	var b := make_boat(Color("f2f2ec"), Color("1d5aa6"), Color("c0392b"))
+	var b := make_boat(Color("f2f2ec"), Color("1d5aa6"), Color("c0392b"), "Aridane II")
 	boat = b["node"]
 	lamp_light = b["light"]
 	lamp_mat = b["lamp_mat"]
@@ -926,8 +926,8 @@ func _build_boat() -> void:
 	boat.add_child(spray)
 
 
-func make_boat(hull_col: Color, stripe1: Color, stripe2: Color) -> Dictionary:
-	return Props.build_boat(self, hull_col, stripe1, stripe2)
+func make_boat(hull_col: Color, stripe1: Color, stripe2: Color, boat_name := "") -> Dictionary:
+	return Props.build_boat(self, hull_col, stripe1, stripe2, boat_name)
 
 
 func _build_spots() -> void:

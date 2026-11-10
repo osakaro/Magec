@@ -53,7 +53,7 @@ var island_mat: StandardMaterial3D
 
 func _ready() -> void:
 	# La barca de Aridane: madera vieja, franjas verde y amarilla.
-	aridane = main.make_boat(Color("d9c9a3"), Color("2e6b4f"), Color("c9a227"))
+	aridane = main.make_boat(Color("d9c9a3"), Color("2e6b4f"), Color("c9a227"), "Magec")
 	aridane["light"].light_energy = 2.4
 	aridane["lamp_mat"].emission_energy_multiplier = 4.0
 

@@ -21,6 +21,7 @@ TEXTURES = [
     "white_plaster_rough_01",  # paredes encaladas
     "weathered_planks",     # madera de puertas y muelle
     "brown_planks_05",      # cubierta del barco
+    "white_planks_clean",   # casco pintado del barquillo
 ]
 MODELS = [
     "boulder_01", "namaqualand_boulder_03", "namaqualand_boulder_05",
@@ -99,6 +100,7 @@ if __name__ == "__main__":
             print("   (saltado)", m, e, file=sys.stderr)
     normalize("white_plaster_rough_01", 215, False)   # enlucido: gris claro neutro
     normalize("weathered_planks", 140, True)          # madera: más clara
+    normalize("white_planks_clean", 205, False)       # casco: gris claro, lo tiñe la pintura
     with open(os.path.join(ROOT, "LICENCIA.txt"), "w") as f:
         f.write("Texturas y modelos de Poly Haven (https://polyhaven.com), licencia CC0.\n"
                 "Dominio público: se pueden usar, modificar y distribuir sin restricciones.\n")

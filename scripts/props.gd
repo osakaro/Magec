@@ -245,20 +245,74 @@ static func deck_mesh() -> ArrayMesh:
 	return st.commit()
 
 
-static func build_boat(parent: Node, white: Color, band: Color, bottom: Color) -> Dictionary:
+static func hull_section(u: float) -> Array:
+	## Forma del casco en la sección u (0 = popa, 1 = proa): [z, semiancho, altura de la regala].
+	var z: float = lerp(2.6, -3.5, u)
+	var w: float = 1.25 * (1.0 - pow(max(u - 0.55, 0.0) / 0.45, 1.7)) * (0.86 + 0.14 * sin(PI * min(u * 1.6, 1.0)))
+	var top: float = 0.62 + pow(u, 3.0) * 0.55
+	return [z, max(w, 0.02), top]
+
+
+static func build_boat(parent: Node, white: Color, band: Color, bottom: Color, name := "") -> Dictionary:
+	## Barquillo canario: casco de tablas pintadas, regala de madera, roda, timón,
+	## motor fueraborda, caseta, redes, cañas, cabos y el nombre pintado en la proa.
 	var node := Node3D.new()
 	parent.add_child(node)
-	add_mesh(node, hull_mesh(white, band, bottom), vc_mat(0.55), Vector3.ZERO)
+	# casco: la textura de tablas se tiñe con los colores pintados (blanco, franja, fondo)
+	var hull_m := vc_mat(0.6)
+	var ht := tex("white_planks_clean", "albedo")
+	if ht:
+		hull_m.albedo_texture = ht
+		hull_m.uv1_triplanar = true
+		hull_m.uv1_scale = Vector3(0.9, 1.6, 0.9)
+		hull_m.normal_enabled = true
+		hull_m.normal_texture = tex("white_planks_clean", "normal")
+	add_mesh(node, hull_mesh(white, band, bottom), hull_m, Vector3.ZERO)
 	add_mesh(node, deck_mesh(), tex_mat("brown_planks_05", Color(1.1, 1.0, 0.9), 0.9, 0.85), Vector3.ZERO)
-	# caseta del timón
-	var cab_white := mat(white.darkened(0.04), 0.6)
-	add_mesh(node, box(Vector3(1.4, 1.05, 1.3)), cab_white, Vector3(0, 1.0, 1.0))
-	add_mesh(node, box(Vector3(1.6, 0.1, 1.55)), mat(band.darkened(0.15), 0.6), Vector3(0, 1.57, 1.0))
-	var glass := mat(Color("1d2b33"), 0.1, 0.3)
-	add_mesh(node, box(Vector3(1.0, 0.38, 0.04)), glass, Vector3(0, 1.2, 0.34))
+	var wood := tex_mat("weathered_planks", Color(1.0, 0.9, 0.8), 0.8, 0.8)
+	var dark_wood := tex_mat("weathered_planks", Color(0.55, 0.45, 0.38), 0.8, 0.8)
+	# regala: listón de madera por todo el borde, a ambos lados
+	var prev: Array = []
+	for i in 13:
+		var sec := hull_section(float(i) / 12.0)
+		if i > 0:
+			for side in [-1.0, 1.0]:
+				var a := Vector3(prev[1] * side, prev[2], prev[0])
+				var b := Vector3(sec[1] * side, sec[2], sec[0])
+				var seg := b - a
+				var mi := add_mesh(node, box(Vector3(0.1, 0.1, seg.length() + 0.04)), wood, (a + b) / 2.0)
+				mi.look_at_from_position((a + b) / 2.0, b, Vector3.UP)
+		prev = sec
+	# roda (proa) y quilla
+	var bow := hull_section(1.0)
+	for k in 6:
+		var f := float(k) / 5.0
+		add_mesh(node, box(Vector3(0.12, 0.28, 0.14)), dark_wood, Vector3(0, lerp(-0.55, bow[2] + 0.12, f), lerp(-3.3, -3.62, f)))
+	add_mesh(node, box(Vector3(0.12, 0.12, 5.6)), dark_wood, Vector3(0, -0.72, -0.4))
+	# timón de popa
+	add_mesh(node, box(Vector3(0.08, 0.9, 0.5)), dark_wood, Vector3(0, -0.25, 2.85))
+	add_mesh(node, box(Vector3(0.06, 0.06, 0.7)), dark_wood, Vector3(0, 0.45, 2.55))
+	# motor fueraborda
+	var engine := mat(Color("e8e6e0"), 0.35, 0.1)
+	var engine_dark := mat(Color("2a2a2c"), 0.5, 0.3)
+	add_mesh(node, box(Vector3(0.42, 0.5, 0.48)), engine, Vector3(0.55, 0.85, 2.85))
+	add_mesh(node, box(Vector3(0.44, 0.08, 0.5)), mat(band, 0.4), Vector3(0.55, 0.92, 2.85))
+	add_mesh(node, cyl(0.06, 0.06, 1.1, 8), engine_dark, Vector3(0.55, 0.15, 2.9))
+	add_mesh(node, box(Vector3(0.36, 0.06, 0.06)), engine_dark, Vector3(0.55, -0.42, 2.98))
+	# caseta del timón: madera pintada, techo de color, puerta y ventanas con marco
+	var cab := tex_mat("white_planks_clean", white.darkened(0.02), 1.6, 0.6)
+	add_mesh(node, box(Vector3(1.4, 1.05, 1.3)), cab, Vector3(0, 1.0, 1.0))
+	add_mesh(node, box(Vector3(1.62, 0.1, 1.58)), mat(band.darkened(0.15), 0.6), Vector3(0, 1.57, 1.0))
+	var glass := mat(Color("1d2b33"), 0.08, 0.4)
+	var frame := mat(band.darkened(0.25), 0.6)
+	add_mesh(node, box(Vector3(1.08, 0.46, 0.04)), frame, Vector3(0, 1.2, 0.34))
+	add_mesh(node, box(Vector3(0.96, 0.36, 0.05)), glass, Vector3(0, 1.2, 0.33))
 	for sx in [-0.71, 0.71]:
-		add_mesh(node, box(Vector3(0.04, 0.34, 0.6)), glass, Vector3(sx, 1.2, 1.0))
-	# neumáticos de defensa en los costados
+		add_mesh(node, box(Vector3(0.04, 0.4, 0.66)), frame, Vector3(sx, 1.2, 1.0))
+		add_mesh(node, box(Vector3(0.05, 0.32, 0.56)), glass, Vector3(sx * 1.005, 1.2, 1.0))
+	add_mesh(node, box(Vector3(0.6, 0.9, 0.04)), dark_wood, Vector3(0, 0.95, 1.66))
+	add_mesh(node, cyl(0.01, 0.015, 1.2, 4), engine_dark, Vector3(0.5, 2.2, 1.3))   # antena
+	# neumáticos de defensa
 	var tire := TorusMesh.new()
 	tire.inner_radius = 0.16
 	tire.outer_radius = 0.3
@@ -268,22 +322,54 @@ static func build_boat(parent: Node, white: Color, band: Color, bottom: Color) -
 	for side in [-1.0, 1.0]:
 		for z in [-0.8, 1.2]:
 			add_mesh(node, tire, rubber, Vector3(side * 1.24, 0.38, z), Vector3(0, 0, PI / 2))
-	# mástil, cabo y farol
-	var wood := mat(Color("6b4a2f"))
-	add_mesh(node, cyl(0.06, 0.08, 3.2, 8), wood, Vector3(0, 2.0, -0.9))
-	add_mesh(node, cyl(0.04, 0.04, 1.6, 6), wood, Vector3(0, 2.9, -0.9), Vector3(PI / 2, 0, 0))
-	# boya y cajas de pescado en cubierta
-	add_mesh(node, box(Vector3(0.6, 0.3, 0.45)), mat(Color("2e6fa6")), Vector3(-0.45, 0.62, -1.5))
-	add_mesh(node, box(Vector3(0.6, 0.3, 0.45)), mat(Color("c9a227")), Vector3(0.4, 0.62, -1.9))
+	# redes amontonadas, cabos y cañas
+	var net := mat(Color("3d6b4a"), 0.95)
+	var blob := SphereMesh.new()
+	blob.radius = 0.3
+	blob.height = 0.32
+	blob.radial_segments = 8
+	blob.rings = 4
+	for k in 4:
+		add_mesh(node, blob, net, Vector3(-0.4 + (k % 2) * 0.35, 0.55, -1.5 - (k / 2) * 0.3), Vector3.ZERO, Vector3(1.3, 1.0, 1.0))
+	var rope := TorusMesh.new()
+	rope.inner_radius = 0.12
+	rope.outer_radius = 0.24
+	rope.rings = 12
+	rope.ring_segments = 5
+	add_mesh(node, rope, mat(Color("c9b48a"), 0.9), Vector3(0.5, 0.5, -0.6))
+	for k in 2:
+		var rod := add_mesh(node, cyl(0.015, 0.03, 3.0, 5), mat(Color("2a2a2a"), 0.4), Vector3(-0.55 + k * 1.1, 1.6, 2.2), Vector3(-0.7, 0, (k - 0.5) * 0.5))
+	add_mesh(node, box(Vector3(0.6, 0.3, 0.45)), mat(Color("2e6fa6")), Vector3(0.45, 0.62, -2.0))
+	add_mesh(node, box(Vector3(0.6, 0.3, 0.45)), mat(Color("c9a227")), Vector3(0.4, 0.92, -2.05))
+	place(node, "lifebuoy", Vector3(0.73, 1.15, 1.0), 0.55, PI / 2)
+	# nombre pintado a ambos lados de la proa
+	if name != "":
+		for side in [-1.0, 1.0]:
+			var lb := Label3D.new()
+			lb.text = name
+			lb.font = load("res://fonts/AlegreyaSC-Bold.ttf")
+			lb.font_size = 48
+			lb.pixel_size = 0.004
+			lb.modulate = band.darkened(0.2)
+			lb.outline_size = 0
+			lb.double_sided = false
+			lb.position = Vector3(side * 0.93, 0.62, -2.35)
+			lb.rotation = Vector3(0, side * PI / 2 + (0.18 * side), 0)
+			node.add_child(lb)
+	# mástil, verga y farol
+	var mast_wood := mat(Color("6b4a2f"))
+	add_mesh(node, cyl(0.06, 0.08, 3.2, 8), mast_wood, Vector3(0, 2.0, -0.9))
+	add_mesh(node, cyl(0.04, 0.04, 1.6, 6), mast_wood, Vector3(0, 2.9, -0.9), Vector3(PI / 2, 0, 0))
 	var bulb := SphereMesh.new()
-	bulb.radius = 0.2
-	bulb.height = 0.4
+	bulb.radius = 0.16
+	bulb.height = 0.32
 	var lm := mat(Color("553311"))
 	lm.emission_enabled = true
 	lm.emission = Color("ffe7a0")
 	lm.emission_energy_multiplier = 0.0
-	add_mesh(node, bulb, lm, Vector3(0, 3.7, -0.9))
-	add_mesh(node, cyl(0.22, 0.18, 0.08, 8), mat(Color("2a2a2a")), Vector3(0, 3.92, -0.9))
+	add_mesh(node, bulb, lm, Vector3(0, 3.72, -0.9))
+	if place(node, "wooden_lantern_01", Vector3(0, 3.5, -0.9), 1.5) == null:
+		add_mesh(node, cyl(0.22, 0.18, 0.08, 8), mat(Color("2a2a2a")), Vector3(0, 3.92, -0.9))
 	var light := OmniLight3D.new()
 	light.light_color = Color("ffd27a")
 	light.omni_range = 38

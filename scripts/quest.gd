@@ -263,7 +263,7 @@ func _ready() -> void:
 
 
 func _build_tomasin() -> void:
-	var b: Dictionary = main.make_boat(Color("eae4d2"), Color("b8322a"), Color("1d5aa6"))
+	var b: Dictionary = main.make_boat(Color("eae4d2"), Color("b8322a"), Color("1d5aa6"), "San Telmo")
 	b["light"].light_energy = 1.6
 	b["lamp_mat"].emission_energy_multiplier = 3.0
 	tomasin = b
