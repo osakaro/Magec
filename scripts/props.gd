@@ -339,7 +339,8 @@ static func build_boat(parent: Node, white: Color, band: Color, bottom: Color, n
 	rope.ring_segments = 5
 	add_mesh(node, rope, mat(Color("c9b48a"), 0.9), Vector3(0.5, 0.5, -0.6))
 	for k in 2:
-		var rod := add_mesh(node, cyl(0.015, 0.03, 3.0, 5), mat(Color("2a2a2a"), 0.4), Vector3(-0.55 + k * 1.1, 1.6, 2.2), Vector3(-0.7, 0, (k - 0.5) * 0.5))
+		var sx := -1.0 if k == 0 else 1.0
+		add_mesh(node, cyl(0.015, 0.03, 3.0, 5), mat(Color("2a2a2a"), 0.4), Vector3(sx * 1.15, 1.7, 1.6), Vector3(-0.5, 0, sx * 0.55))
 	add_mesh(node, box(Vector3(0.6, 0.3, 0.45)), mat(Color("2e6fa6")), Vector3(0.45, 0.62, -2.0))
 	add_mesh(node, box(Vector3(0.6, 0.3, 0.45)), mat(Color("c9a227")), Vector3(0.4, 0.92, -2.05))
 	place(node, "lifebuoy", Vector3(0.73, 1.15, 1.0), 0.55, PI / 2)
